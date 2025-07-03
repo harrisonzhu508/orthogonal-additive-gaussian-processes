@@ -378,79 +378,93 @@ def plot_second_order(
 def plot_single_effect_binary(
     m: Union[gpflow.models.GPR, gpflow.models.SGPR, gpflow.models.SVGP],
     i: int,
-    binary_name: list,
+    binary_name: List[str],
     covariate_name: str = "",
     title: str = "Output Effect",
     y_transform: Optional[Callable[[np.ndarray], np.ndarray]] = None,
     semilogy: bool = False,
-    tikz_path=None,
+    tikz_path: Optional[str] = None,
 ):
+    # 1) unpack data + stats
     X, Y = m.data
-    Xi = X[:, i].numpy()
-    alpha, L = get_model_sufficient_statistics(m)
+    Xi = X[:, i].numpy().squeeze().astype(int)             # shape (N,)
+    alpha_tf, L_tf = get_model_sufficient_statistics(m)   # alpha_tf: [M,1], L_tf: [M,M]
+    alpha = alpha_tf.numpy().reshape(-1)                  # [M,]
+    
+    # 2) choose conditioning set
     if isinstance(m, gpflow.models.GPR):
-        X_conditioned = X
-    elif isinstance(m, (gpflow.models.SGPR, gpflow.models.SVGP)):
-        X_conditioned = m.inducing_variable.Z
+        Xc = X
+    else:  # SGPR or SVGP
+        Xc = m.inducing_variable.Z
+    
+    # 3) posterior effect at {0,1}
+    xx = np.array([[0.0], [1.0]])                         # shape (2,1)
+    # cross‐covariance: (2 × M)
+    Kxx = m.kernel.kernels[i].K(xx, Xc[:, i : i+1]).numpy()
+    Kxx *= float(m.kernel.variances[1].numpy())
+    # mean + variance
+    mu = Kxx.dot(alpha)                                    # (2,)
+    tmp = tf.linalg.triangular_solve(L_tf, tf.transpose(Kxx))  # (M,2)
+    tmp = tmp.numpy()
+    var = (m.kernel.kernels[i].K_diag(xx).numpy() * float(m.kernel.variances[1].numpy())
+           - np.sum(tmp**2, axis=0))                      # (2,)
+    lower = mu - 2*np.sqrt(var)
+    upper = mu + 2*np.sqrt(var)
 
-    xx = np.array([0, 1])
-    Kxx = (
-        m.kernel.kernels[i].K(xx[:, None], X_conditioned[:, i : i + 1])
-        * m.kernel.variances[1]
-    )
-    mu = tf.matmul(Kxx, alpha)[:, 0]
-    tmp = tf.linalg.triangular_solve(L, tf.transpose(Kxx))
-    var = m.kernel.kernels[i].K_diag(xx[:, None]) * m.kernel.variances[1] - np.sum(
-        tmp ** 2, axis=0
-    )
+    # 4) compute “corrected” posterior mean at training points
+    #    i.e. remove the i-th effect from the full posterior
+    K_sub = m.kernel(X, Xc).numpy()                        # (N × M)
+    Ki   = m.kernel.kernels[i].K(X[:, i:i+1], Xc[:, i:i+1]).numpy()
+    Ki  *= float(m.kernel.variances[1].numpy())
+    K_sub -= Ki                                           # remove effect i
+    mu_minus_i = K_sub.dot(alpha)                         # (N,)
 
-    lower = mu - 2 * np.sqrt(var)
-    upper = mu + 2 * np.sqrt(var)
-
-    if y_transform is None:
-        mu_rescaled = 1.0 * mu
-        lower_rescaled = 1.0 * lower
-        upper_rescaled = 1.0 * upper
+    # 5) apply y_transform if given
+    if y_transform is not None:
+        Ycorr = y_transform(mu_minus_i)
+        mu_plot   = y_transform(mu)
+        lower_plot = y_transform(lower)
+        upper_plot = y_transform(upper)
     else:
-        mu_rescaled = y_transform(mu)
-        lower_rescaled = y_transform(lower)
-        upper_rescaled = y_transform(upper)
+        Ycorr     = mu_minus_i
+        mu_plot   = mu
+        lower_plot = lower
+        upper_plot = upper
 
-    fig, ax1 = plt.subplots(1, 1, figsize=(10, 6))
+    # 6) plotting
+    fig, ax1 = plt.subplots(figsize=(10,6))
+    # red bars for uncertainty
+    ax1.plot([0,0], [lower_plot[0], upper_plot[0]], lw=6, color="r")
+    ax1.plot([1,1], [lower_plot[1], upper_plot[1]], lw=6, color="r")
+    # twin‐axis for boxplot
+    ax2 = ax1.twinx()
+    ax1.get_shared_y_axes().join(ax1, ax2)
 
-    ax1.plot([0, 0], [lower_rescaled[0], upper_rescaled[0]], linewidth=8, color="r")
-    ax1.plot([1, 1], [lower_rescaled[1], upper_rescaled[1]], linewidth=8, color="r")
-    ax1a = ax1.twinx()
-    ax1.get_shared_y_axes().join(ax1, ax1a)
+    # boxplot of corrected data by group
+    data0 = Ycorr[Xi == 0]
+    data1 = Ycorr[Xi == 1]
+    ax2.boxplot([data0, data1], positions=[0,1])
+    ax2.set_xticks([0,1])
+    ax2.set_xticklabels(binary_name)
+    ax2.set_ylabel("data with other effects removed", color="k")
 
-    Y_dict = {
-        binary_name[0]: Y_corrected_rescaled[Xi == 0][:, 0],
-        binary_name[1]: Y_corrected_rescaled[Xi == 1][:, 0],
-    }
-    ax1a.boxplot(
-        Y_dict.values(), positions=np.array(range(2))
-    )
-
-    ax1a.set_xticklabels([binary_name[0], binary_name[1]])
-    ax1a.set_ylabel("data with other effects removed", color="k")
-
-    ax1.plot(1, mu_rescaled[1], "x", linewidth=40, color="b")
-    ax1.plot(0, mu_rescaled[0], "x", linewidth=40, color="b")
-    plt.xticks(np.arange(2), [binary_name[0], binary_name[1]])
-    plt.xlim([-1, 2])
-    plt.tight_layout()
-
+    # posterior means
+    ax1.plot([0,1], mu_plot, "x", color="b", ms=10)
+    ax1.set_xticks([0,1])
+    ax1.set_xticklabels(binary_name)
+    ax1.set_xlim(-0.5, 1.5)
     ax1.set_ylabel(title, color="r")
     ax1.set_title(covariate_name)
 
     if semilogy:
-        ax1.semilogy()
-        ax1a.semilogy()
+        ax1.set_yscale("log")
+        ax2.set_yscale("log")
 
-    fig_list = FigureDescription(fig=fig, description=title)
+    plt.tight_layout()
     if tikz_path is not None:
-        tikzplotlib.save(tikz_path + f"{title}.tex")
-    return fig_list
+        tikzplotlib.save(f"{tikz_path}{title}.tex")
+
+    return FigureDescription(fig=fig, description=title)
 
 
 def plot_second_order_binary(

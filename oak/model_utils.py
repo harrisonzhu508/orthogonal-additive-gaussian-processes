@@ -23,6 +23,7 @@ from oak.normalising_flow import Normalizer
 from oak.oak_kernel import OAKKernel, get_list_representation
 from oak.plotting_utils import FigureDescription, save_fig_list
 from oak.utils import compute_sobol_oak, initialize_kmeans_with_categorical
+import pandas as pd
 # -
 
 f64 = gpflow.utilities.to_default_float
@@ -698,7 +699,35 @@ class oak_model:
 
         if save_fig is not None:
             save_fig_list(fig_list=fig_list, dirname=Path(save_fig))
+    
+    def sobol_summary(
+        self,
+        covariate_names: List[str],
+        likelihood_variance: bool = False
+    ) -> pd.DataFrame:
+        """
+        Compute normalized Sobol indices and return as a DataFrame
+        with one row per interaction (including single‐feature effects),
+        using real covariate names.
+        
+        :param covariate_names: list of feature names in the same order as X’s columns
+        :param likelihood_variance: whether to include the likelihood noise in normalization
+        """
+        # run or re‐run Sobol
+        sobols = self.get_sobol(likelihood_variance=likelihood_variance)
+        tuples = self.tuple_of_indices  # e.g. [(0,), (1,), (0,1), ...]
 
+        def name_for(tup):
+            # join the names of each index in the tuple
+            return " & ".join(covariate_names[i] for i in tup)
+
+        names = [name_for(t) for t in tuples]
+
+        df = pd.DataFrame({
+            "interaction": names,
+            "sobol_index": sobols,
+        })
+        return df.sort_values("sobol_index", ascending=False).reset_index(drop=True)
 
 def _calculate_features(
     X: tf.Tensor, categorical_feature: List[int], binary_feature: List[int]

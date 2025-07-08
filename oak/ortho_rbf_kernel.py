@@ -79,22 +79,66 @@ class OrthogonalRBFKernel(gpflow.kernels.Kernel):
 
         if isinstance(self.measure, GaussianMeasure):
 
-            def cov_X_s(X):
-                tf.debugging.assert_shapes([(X, (..., "N", 1))])
-                l = self.base_kernel.lengthscales
-                sigma2 = self.base_kernel.variance
-                mu, var = self.measure.mu, self.measure.var
-                return (
-                    sigma2
-                    * l
-                    / tf.sqrt(l ** 2 + var)
-                    * tf.exp(-0.5 * ((X - mu) ** 2) / (l ** 2 + var))
-                )
+            # support multi-dimensional Gaussian measure over active_dims
+            # new
+            try:
+                D = len(self.active_dims)
+            except TypeError:
+                # no explicit list of dims → assume 1D
+                D = 1
+            # common dtype for kernel params
+            dtype = self.base_kernel.lengthscales.dtype
+            mu_raw = self.measure.mu
+            var_raw = self.measure.var
+            mu = tf.cast(mu_raw, dtype)
+            var = tf.cast(var_raw, dtype)
+            print(f"OrthogonalRBFKernel: mu={mu}, var={var}, D={D}")
 
-            def var_s():
-                l = self.base_kernel.lengthscales
-                sigma2 = self.base_kernel.variance
-                return sigma2 * l / tf.sqrt(l ** 2 + 2 * self.measure.var)
+            if D == 1:
+                # 1D case
+                def cov_X_s(X):
+                    tf.debugging.assert_shapes([(X, (..., "N", 1))])
+                    l = self.base_kernel.lengthscales
+                    sigma2 = self.base_kernel.variance
+                    return (
+                        sigma2
+                        * l
+                        / tf.sqrt(l**2 + var)
+                        * tf.exp(-0.5 * ((X - mu)**2) / (l**2 + var))
+                    )
+
+                def var_s():
+                    l = self.base_kernel.lengthscales
+                    sigma2 = self.base_kernel.variance
+                    return sigma2 * l / tf.sqrt(l**2 + 2 * var)
+
+            elif D==2:
+                # D-dimensional isotropic Gaussian
+                def cov_X_s(X):
+                    tf.debugging.assert_shapes([(X, ("N", D))])
+                    l = self.base_kernel.lengthscales  # shape [1]
+                    sigma2 = self.base_kernel.variance
+                    # by default, mu and var are 1D tensors
+                    l2 = l**2
+                    denom = l2 + var
+                    norm = sigma2 * (l2 / denom)
+                    diff = X - mu
+                    exponent = -0.5 * tf.reduce_sum(diff**2 / denom, axis=1, keepdims=True)
+                    
+                    return norm * tf.exp(exponent)
+
+                def var_s():
+                    l = self.base_kernel.lengthscales  # shape [1]
+                    sigma2 = self.base_kernel.variance
+                    l2 = l**2
+                    denom = l2 + 2*var
+                    # log σ² + log(l²) − log(denom)
+                    log_vari = tf.math.log(sigma2) + 2*tf.math.log(l) - tf.math.log(denom)
+                    return tf.exp(log_vari)
+            else:
+                raise NotImplementedError(
+                    "OrthogonalRBFKernel does not support D > 2 for GaussianMeasure"
+                )
 
         if isinstance(self.measure, EmpiricalMeasure):
 

@@ -339,6 +339,7 @@ def compute_sobol_oak(
     model: gpflow.models.BayesianModel,
     delta: float,
     mu: float,
+    _user_active_dims: List[List[int]] = None,
     share_var_across_orders: Optional[bool] = True,
 ) -> Tuple[List[List[int]], List[float]]:
     """
@@ -350,12 +351,10 @@ def compute_sobol_oak(
            if False, it uses original OrthogonalRBFKernel kernel \prod_i(1+k_i).
     :return: list of input dimension indices and list of sobol indices
     """
-    print(model.kernel)
-    assert isinstance(model.kernel, OAKKernel), "only work for OAK kernel"
     num_dims = model.data[0].shape[1]
 
     selected_dims_oak, kernel_list = get_list_representation(
-        model.kernel, num_dims=num_dims
+        model.kernel, num_dims=num_dims, _user_active_dims=_user_active_dims
     )
     selected_dims_oak = selected_dims_oak[1:]  # skip constant term
     if isinstance(model, (gpflow.models.SGPR, gpflow.models.SVGP)):
@@ -367,7 +366,8 @@ def compute_sobol_oak(
     sobol = []
     L_list = []
     for kernel in kernel_list:
-        assert isinstance(kernel, KernelComponenent)
+        # print(kernel)
+        # assert isinstance(kernel, KernelComponenent)
         if len(kernel.iComponent_list) == 0:
             continue  # skip constant term
         L = np.ones((N, N))

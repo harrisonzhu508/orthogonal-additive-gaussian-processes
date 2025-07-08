@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import oak.normalising_flow as normalising_flow
 from unittest import mock
-from oak.normalising_flow import Normalizer
+from oak.normalising_flow import Normalizer, Normalizer2D
 
 
 # -
@@ -46,3 +46,42 @@ def test_normalising_flow(mock_plt):
 
     # Assert plt.title has been called with expected arg
     mock_plt.title.assert_called_once_with("NF")
+
+
+# Unit tests for 2D Normalizer2D
+@mock.patch("%s.normalising_flow.plt" % __name__)
+def test_normalising_flow_2d(mock_plt):
+    np.random.seed(123)
+    N = 200
+    # generate 2D data with different means and scales
+    x = np.hstack([
+        np.random.normal(1.0, 0.2, size=(N, 1)),
+        np.random.normal(3.0, 0.8, size=(N, 1)),
+    ])
+
+    # apply 2D normaliser without log
+    n2 = Normalizer2D(x)
+    kl_before = n2.KL_objective()
+
+    opt = gpflow.optimizers.Scipy()
+    opt.minimize(n2.KL_objective, n2.trainable_variables)
+
+    y = n2.bijector(x).numpy()
+    # check each dimension has zero mean and unit variance
+    np.testing.assert_almost_equal(0, np.mean(y[:, 0]), decimal=2)
+    np.testing.assert_almost_equal(1, np.std(y[:, 0]), decimal=2)
+    np.testing.assert_almost_equal(0, np.mean(y[:, 1]), decimal=2)
+    np.testing.assert_almost_equal(1, np.std(y[:, 1]), decimal=2)
+
+    # check KS tests on each dimension do not reject
+    results = n2.kstest()
+    for s, p in results:
+        assert p > 0.05
+
+    # KL objective should decrease after optimisation
+    kl_after = n2.KL_objective()
+    assert kl_after < kl_before
+
+    # plot should invoke figure
+    n2.plot(title="NF2D")
+    assert mock_plt.figure.called

@@ -90,19 +90,20 @@ class OAKKernel(gpflow.kernels.Kernel):
         self.share_var_across_orders = share_var_across_orders
         # p0 is a list of probability measures for binary kernels, set to None if it is not binary
         if p0 is None:
-            p0 = [None] * len(active_dims)
+            p0 = [None] * len(base_kernels)
 
         # p is a list of probability measures for categorical kernels, set to None if it is not categorical
         if p is None:
-            p = [None] * len(active_dims)
+            p = [None] * len(base_kernels)
+        print(p0, p, base_kernels, active_dims)
 
         if constrain_orthogonal:
             if empirical_locations is None:
                 assert (
                     empirical_weights is None
                 ), "Cannot have weights without locations"
-                empirical_locations = [None] * len(active_dims)
-                empirical_weights = [None] * len(active_dims)
+                empirical_locations = [None] * len(base_kernels)
+                empirical_weights = [None] * len(base_kernels)
             else:
                 if empirical_weights is not None:
                     location_shapes = [
@@ -265,6 +266,7 @@ class OAKKernel(gpflow.kernels.Kernel):
             )
 
     def K_diag(self, X):
+        kernel_slices = [k.slice(X)[0] for k in self.kernels]
         kernel_diags = [k.K_diag(k.slice(X)[0]) for k in self.kernels]
         additive_terms = self.compute_additive_terms(kernel_diags)
         if self.share_var_across_orders:
@@ -286,19 +288,20 @@ class KernelComponenent(gpflow.kernels.Kernel):
         share_var_across_orders: Optional[bool] = True,
     ):
         # Orthogonal kernel + interactions kernel
-        # sort out active_dims - it must be a list of integers
         super().__init__(active_dims=oak_kernel.active_dims)
         self.oak_kernel = oak_kernel
         self.iComponent_list = iComponent_list
         self.share_var_across_orders = share_var_across_orders
+        # Select kernels corresponding to the given component dims
         self.kernels = [
             k
-            for i, k in enumerate(self.oak_kernel.kernels)
-            if i in self.iComponent_list
+            for idx, k in enumerate(self.oak_kernel.kernels)
+            if idx in self.iComponent_list
         ]
 
     def K(self, X, X2=None):
-        if len(self.iComponent_list) == 0:
+        # Constant term
+        if not self.kernels:
             shape = (
                 [tf.shape(X)[0], tf.shape(X)[0]]
                 if X2 is None
@@ -306,59 +309,75 @@ class KernelComponenent(gpflow.kernels.Kernel):
             )
             return self.oak_kernel.variances[0] * tf.ones(
                 shape, dtype=gpflow.default_float()
-            )  # start with constant term
-        else:
-            # element wise product
-            # compute kernel in iComponent_list only
-            n_order = len(self.iComponent_list)  # [0, 1]
-            k_mats = [k(X, X2) for k in self.kernels]
-            variances_n = (
-                self.oak_kernel.variances[n_order]
-                if self.share_var_across_orders
-                else 1
             )
-            return variances_n * tf.reduce_prod(k_mats, axis=0)
+        # Interaction term: product of selected kernels
+        n_order = len(self.kernels)
+        mats = [k(X, X2) for k in self.kernels]
+
+        var_n = (
+            self.oak_kernel.variances[n_order]
+            if self.share_var_across_orders
+            else 1
+        )
+        return var_n * tf.reduce_prod(mats, axis=0)
 
     def K_diag(self, X):
-        if len(self.iComponent_list) == 0:
+        # Constant term
+        if not self.kernels:
             return self.oak_kernel.variances[0] * tf.ones(
                 tf.shape(X)[0], dtype=gpflow.default_float()
-            )  # start with constant term
-        else:
-            n_order = len(self.iComponent_list)
-            k_mats = [k.K_diag(k.slice(X)[0]) for k in self.kernels]
-            variances_n = (
-                self.oak_kernel.variances[n_order]
-                if self.share_var_across_orders
-                else 1
             )
-            return variances_n * tf.reduce_prod(k_mats, axis=0)
-
+        # Interaction term: product of selected diagonals
+        n_order = len(self.kernels)
+        diags = [k.K_diag(k.slice(X)[0]) for k in self.kernels]
+        
+        var_n = (
+            self.oak_kernel.variances[n_order]
+            if self.share_var_across_orders
+            else 1
+        )
+        return var_n * tf.reduce_prod(diags, axis=0)
 
 def get_list_representation(
     kernel: OAKKernel,
     num_dims: int,
+    _user_active_dims: Optional[List[List[int]]] = None,
     share_var_across_orders: Optional[bool] = True,
 ) -> Tuple[List[List[int]], List[KernelComponenent]]:
-    """
-    Construct kernel list representation of OAK kernel
-    """
-    assert isinstance(kernel, OAKKernel)
-    selected_dims = []
-    kernel_list = []
-    selected_dims.append([])  # no dimensions for constant term
-    kernel_list.append(
-        KernelComponenent(kernel, [], share_var_across_orders=share_var_across_orders)
-    )  # add constant
-    if kernel.max_interaction_depth > 0:
-        for ii in range(kernel.max_interaction_depth + 1):
-            if ii > 0:
-                tmp = [
-                    list(tup) for tup in itertools.combinations(np.arange(num_dims), ii)
-                ]
-                selected_dims = selected_dims + tmp
+    # if no explicit active_dims passed in, assume each dim is its own block
+    if _user_active_dims is None:
+        user_blocks = [[d] for d in range(num_dims)]
+    else:
+        # make a shallow copy so we can append
+        user_blocks = [list(block) for block in _user_active_dims]
 
-                for jj in range(len(tmp)):
-                    kernel_list.append(KernelComponenent(kernel, tmp[jj]))
+    # now build up covered dims and append any missing ones
+    covered = {d for block in user_blocks for d in block}
+    for d in range(num_dims):
+        if d not in covered:
+            user_blocks.append([d])
+
+    # rest of your code unchanged…
+    dim_to_kidx = {}
+    for kidx, dims in enumerate(user_blocks):
+        for d in dims:
+            dim_to_kidx[d] = kidx
+
+    def dims_to_kcombo(dim_tuple):
+        return sorted({dim_to_kidx[d] for d in dim_tuple})
+
+    selected_dims = [[]]
+    kernel_list   = [KernelComponenent(kernel, [], share_var_across_orders)]
+
+    if kernel.max_interaction_depth < 1:
+        return selected_dims, kernel_list
+
+    for order in range(1, kernel.max_interaction_depth + 1):
+        for raw_combo in itertools.combinations(range(num_dims), order):
+            kcombo = dims_to_kcombo(raw_combo)
+            if kcombo in selected_dims:
+                continue
+            selected_dims.append(kcombo)
+            kernel_list.append(KernelComponenent(kernel, kcombo, share_var_across_orders))
 
     return selected_dims, kernel_list

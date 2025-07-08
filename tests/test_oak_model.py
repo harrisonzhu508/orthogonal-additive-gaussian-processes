@@ -252,4 +252,3 @@ def test_oak_gmm_applied_without_flows(binary_5D_data):
     assert (
         np.array(oak.input_flows[:-1]) != None
     ).sum() == 4, f"Should have normalising flow for every continuous input without a GMM measure {oak.input_flows[:-1]}"
-

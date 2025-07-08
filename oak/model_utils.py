@@ -5,7 +5,7 @@
 import os
 import time
 from pathlib import Path
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Union, Type
 import gpflow
 import numpy as np
 import tensorflow as tf
@@ -19,7 +19,7 @@ from sklearn.mixture import GaussianMixture
 from tensorflow_probability import distributions as tfd
 from oak import plotting_utils
 from oak.input_measures import MOGMeasure
-from oak.normalising_flow import Normalizer
+from oak.normalising_flow import Normalizer, Normalizer2D
 from oak.oak_kernel import OAKKernel, get_list_representation
 from oak.plotting_utils import FigureDescription, save_fig_list
 from oak.utils import compute_sobol_oak, initialize_kmeans_with_categorical
@@ -87,66 +87,85 @@ def load_model(
             print(model_params[i], model.trainable_parameters[i])
             model.trainable_parameters[i].assign(model_params[i])
 
-
 def create_model_oak(
     data: RegressionData,
     max_interaction_depth: int = 2,
     constrain_orthogonal: bool = True,
     inducing_pts: np.ndarray = None,
-    optimise=False,
-    zfixed=True,
+    optimise: bool = False,
+    zfixed: bool = True,
     p0=None,
     p=None,
     lengthscale_bounds=None,
-    empirical_locations: Optional[List[float]] = None,
-    empirical_weights: Optional[List[float]] = None,
+    empirical_locations=None,
+    empirical_weights=None,
     use_sparsity_prior: bool = True,
-    gmm_measures: Optional[List[MOGMeasure]] = None,
-    share_var_across_orders: Optional[bool] = True,
+    gmm_measures=None,
+    share_var_across_orders: bool = True,
+    base_kernels: Optional[List[Type[gpflow.kernels.Kernel]]] = None,
+    active_dims: Optional[List[List[int]]] = None,
 ) -> GPModel:
     """
-    :param num_dims: number of dimensions of inputs
-    :param max_interaction_depth: maximum order of interactions
-    :param constrain_orthogonal: whether to use the orthogonal version of the kernel
-    :param inducing_pts: inducing points, if None, it uses K-means centers
-    :param optimise: whether to optimise the hyper parameters of the model
-    :param zfixed: whether to fix or learn the inducing points
-    :param p0: list of probability measures for binary kernels, set to None if it is not binary
-    :param p: list of probability measures for categorical kernels, set to None if it is not categorical
-    :param lengthscale_bounds: bounds of the lengthscale parameters
-    :param empirical_locations: list of locations of empirical measure, set to None if not using the empirical measure
-    :param empirical_weights: list of weights of empirical measure, set to None if not using the empirical measure
-    :param use_sparsity_prior: whether to use sparse prior on the kernel variance parameters
-    :param gmm_measures: list of Gaussian mixture measures
-    :param share_var_across_orders: whether to use the same variance parameter across interaction order
-    :return: a GP model with OAK kernel
+    Build an OAK GP model.  `base_kernels` and `active_dims` are now
+    understood to be specified **per block** (not per raw dimension).
     """
-    num_dims = data[0].shape[1]
+    X, Y = data
+    num_dims = X.shape[1]
 
-    # create oak kernel
+    # ------------------------------------------------------------------
+    # 0) active-dims: default = one block per raw dim
+    # ------------------------------------------------------------------
+    if active_dims is None:
+        active_dims = [[i] for i in range(num_dims)]
+    num_blocks = len(active_dims)
+
+    # ------------------------------------------------------------------
+    # 1) p0 / p lists are still per raw dimension
+    # ------------------------------------------------------------------
     if p0 is None:
-        p0 = [None] * num_dims
+        p0 = [None] * num_blocks
     if p is None:
-        p = [None] * num_dims
-    base_kernels = [None] * num_dims
-    for dim in range(num_dims):
-        if (p0[dim] is None) and (p[dim] is None):
-            base_kernels[dim] = gpflow.kernels.RBF
+        p = [None] * num_blocks
 
+    # ------------------------------------------------------------------
+    # 2) base_kernels: build default list **per block**
+    # ------------------------------------------------------------------
+    if base_kernels is None:
+        base_kernels = []
+        for block in active_dims:
+            # a block is “continuous” only if *all* its dims are continuous
+            if all((p0[d] is None and p[d] is None) for d in block):
+                base_kernels.append(gpflow.kernels.RBF)   # default RBF
+            else:
+                base_kernels.append(None)                 # handled by p0/p
+    else:
+        if len(base_kernels) != num_blocks:
+            raise ValueError(
+                f"base_kernels must have one entry per block "
+                f"(len(active_dims) = {num_blocks}), got {len(base_kernels)}"
+            )
+
+    # ------------------------------------------------------------------
+    # 3) Instantiate OAKKernel
+    # ------------------------------------------------------------------
     k = OAKKernel(
-        base_kernels,
-        num_dims=num_dims,
-        max_interaction_depth=max_interaction_depth,
-        constrain_orthogonal=constrain_orthogonal,
-        p0=p0,
-        p=p,
-        lengthscale_bounds=lengthscale_bounds,
-        empirical_locations=empirical_locations,
-        empirical_weights=empirical_weights,
-        gmm_measures=gmm_measures,
-        share_var_across_orders=share_var_across_orders,
+        base_kernels        = base_kernels,
+        num_dims            = num_dims,
+        max_interaction_depth = max_interaction_depth,
+        active_dims         = active_dims,
+        constrain_orthogonal= constrain_orthogonal,
+        p0                  = p0,
+        p                   = p,
+        lengthscale_bounds  = lengthscale_bounds,
+        empirical_locations = empirical_locations,
+        empirical_weights   = empirical_weights,
+        gmm_measures        = gmm_measures,
+        share_var_across_orders = share_var_across_orders,
     )
 
+    # ------------------------------------------------------------------
+    # 4) Choose GPR vs SGPR and finish exactly as before
+    # ------------------------------------------------------------------
     if inducing_pts is not None:
         model = SGPR(
             data,
@@ -158,38 +177,50 @@ def create_model_oak(
             set_trainable(model.inducing_variable, False)
     else:
         model = GPR(data, mean_function=None, kernel=k)
-    # set priors for variance
-    if use_sparsity_prior:
-        print("Using sparsity prior")
-        if share_var_across_orders:
-            for p in model.kernel.variances:
-                p.prior = tfd.Gamma(f64(1.0), f64(0.2))
-    # Initialise likelihood variance to small value to avoid finding all-noise explanation minima
+
+    if use_sparsity_prior and share_var_across_orders:
+        for v in model.kernel.variances:
+            v.prior = tfd.Gamma(f64(1.0), f64(0.2))
+
     model.likelihood.variance.assign(0.01)
+
     if optimise:
         t_start = time.time()
-        opt = gpflow.optimizers.Scipy()
-        opt.minimize(
-            model.training_loss_closure(), model.trainable_variables, method="BFGS"
+        gpflow.optimizers.Scipy().minimize(
+            model.training_loss_closure(),
+            model.trainable_variables,
+            method="BFGS",
         )
-        gpflow.utilities.print_summary(model, fmt="notebook")
-        print(f"Training took {time.time() - t_start:.1f} seconds.")
+        print(f"Optimisation took {time.time() - t_start:.1f}s")
+
     return model
 
 
-def apply_normalise_flow(X: tf.Tensor, input_flows: List[Normalizer]) -> tf.Tensor:
+def apply_normalise_flow(
+    X: tf.Tensor,
+    active_dims: List[List[int]],
+    input_flows: List[Optional[gpflow.base.Module]],
+) -> tf.Tensor:
     """
-    :param X: input of which the normalising flow is to be applied
-    :param input_flows: list of normalising flows to apply to each feature dimension
-    :return: inputs after transformations of the flow
+    Return a copy of X where every column (or joint block of columns)
+    has been passed through its bijector, if present.
+
+    The same flow object may appear in several slots of `input_flows`
+    (one per raw dimension).  We make sure to call it only once.
     """
-    X_scaled = np.zeros((X.shape))
-    for ii in range(X.shape[1]):
-        if input_flows[ii] is None:
-            X_scaled[:, ii] = X[:, ii]
-        else:
-            X_scaled[:, ii] = input_flows[ii].bijector(X[:, ii])
-    return X_scaled
+    X = X.copy()                       # work on NumPy copy
+
+    for d, flow in enumerate(input_flows):
+        this_active_dims = active_dims[d]
+        
+        if input_flows[d] is not None:
+            if len(this_active_dims) == 1:            # old 1-D behaviour
+                X[:, this_active_dims] = flow.bijector(X[:, this_active_dims])
+            elif len(this_active_dims)==2:                          # joint block   (e.g. dims [1,2])
+                X[:, this_active_dims] = flow.bijector(X[:, this_active_dims])
+            else:
+                raise NotImplementedError("Normalising flow not implemented for blocks of size > 2")
+    return X
 
 
 class oak_model:
@@ -206,6 +237,8 @@ class oak_model:
         sparse: bool = False,
         use_normalising_flow: bool = True,
         share_var_across_orders: bool = True,
+        base_kernels: Optional[List[Type[gpflow.kernels.Kernel]]] = None,
+        active_dims:    Optional[List[List[int]]]            = None,
     ):
         """
         :param max_interaction_depth: maximum number of interaction terms to consider
@@ -246,6 +279,8 @@ class oak_model:
         self.sparse = sparse
         self.use_normalising_flow = use_normalising_flow
         self.share_var_across_orders = share_var_across_orders
+        self._user_base_kernels = base_kernels
+        self._user_active_dims   = active_dims
 
     def fit(
         self,
@@ -259,8 +294,10 @@ class oak_model:
         :param optimise: whether to optimise the model
         :param initialise_inducing_points: whether to initialise inducing points with K-means
         """
+        self._user_active_dims   = self._user_active_dims if self._user_active_dims is not None else [[i] for i in range(0, X.shape[1])]
         self.xmin, self.xmax = X.min(0), X.max(0)
         self.num_dims = X.shape[1]
+        num_blks = len(self._user_active_dims)
 
         (
             self.continuous_index,
@@ -273,16 +310,17 @@ class oak_model:
             categorical_feature=self.categorical_feature,
             binary_feature=self.binary_feature,
         )
-        # discrete_input_set = set(self.binary_index).union(set(self.categorical_index))
+
+        # Validate empirical/GMM measures
         if self.empirical_measure is not None:
             if not set(self.empirical_measure).issubset(self.continuous_index):
                 raise ValueError(
                     f"Empirical measure={self.empirical_measure} should only be used on non-binary/categorical inputs {self.continuous_index}"
                 )
         if self.gmm_measure is not None:
-            if len(self.gmm_measure) != self.num_dims:
-                return ValueError(
-                    f"Must specify number of components for each inputs dimension 1..{X.shape[0]}"
+            if len(self.gmm_measure) != len(self._user_active_dims):
+                raise ValueError(
+                    f"Must specify number of components for each inputs dimension 1..{len(self._user_active_dims)}"
                 )
             idx_gmm = np.flatnonzero(self.gmm_measure)
             if not set(idx_gmm).issubset(self.continuous_index):
@@ -290,109 +328,98 @@ class oak_model:
                     f"GMM measure on inputs {idx_gmm} should only be used on continuous inputs {self.continuous_index}"
                 )
 
-        # Measure
-        self.estimated_gmm_measures = [None] * self.num_dims
+        # Estimate any GMM measures
+        self.estimated_gmm_measures = [None] * len(self._user_active_dims)
         if self.gmm_measure is not None:
             for i_dim in np.flatnonzero(self.gmm_measure):
-                K_for_input_i = self.gmm_measure[i_dim]
                 self.estimated_gmm_measures[i_dim] = estimate_one_dim_gmm(
-                    K=K_for_input_i, X=X[:, i_dim]
+                    K=self.gmm_measure[i_dim], X=X[:, i_dim]
                 )
 
-        self.empirical_locations = [None] * self.num_dims
-        self.empirical_weights = [None] * self.num_dims
-
-        # scaling
-        self.input_flows = [None] * self.num_dims
-        for i in self.continuous_index:
-            if (self.empirical_measure is not None) and (i in self.empirical_measure):
-                continue  # skip
-            if self.estimated_gmm_measures[i] is not None:
+        # Prepare scaling / normalising flows across blocks
+        blocks = self._user_active_dims or [[i] for i in range(self.num_dims)]
+        self.input_flows = [None] * len(blocks)
+        for i, blk in enumerate(blocks):
+            # Only apply a joint flow if all dims are continuous and not empirical/GMM
+            if not all(d in self.continuous_index for d in blk):
                 continue
-            d = X[:, i]
+            if self.empirical_measure and any(d in self.empirical_measure for d in blk):
+                continue
+            if self.gmm_measure and any(self.gmm_measure[d] for d in blk):
+                continue
 
             if self.use_normalising_flow:
-                n = Normalizer(d)
+                if len(blk) == 1:
+                    flow = Normalizer(X[:, blk[0]])
+                elif len(blk) == 2:
+                    flow = Normalizer2D(X[:, blk])
+                else:
+                    raise NotImplementedError(
+                        f"Normalising flow not implemented for blocks of size {len(blk)}"
+                    )
                 opt = gpflow.optimizers.Scipy()
-                opt.minimize(n.KL_objective, n.trainable_variables)
-                self.input_flows[i] = n
+                opt.minimize(flow.KL_objective, flow.trainable_variables)
+                self.input_flows[i] = flow
 
-        self.alpha = None
+        # Fit y-scaler
         self.scaler_y = preprocessing.StandardScaler().fit(Y)
         self.Y_scaled = self.scaler_y.transform(Y)
-        # standardize features with empirical measure to avoid cholesky decomposition error
+
+        # Empirical X-scaler
         if self.empirical_measure is not None:
             self.scaler_X_empirical = preprocessing.StandardScaler().fit(
                 X[:, self.empirical_measure]
             )
+        # Standard scaler if no flows
         if not self.use_normalising_flow:
             self.scaler_X_continuous = preprocessing.StandardScaler().fit(
                 X[:, self.continuous_index]
             )
-        self.X_scaled = self._transform_x(X)
 
-        # calculate empirical location and weights after applying scaling X
+        # Transform inputs
+        self.X_scaled = self._transform_x(X)
+        self.empirical_locations = [None] * num_blks
+        self.empirical_weights = [None] * num_blks
+
+        # Compute empirical locations/weights
         if self.empirical_measure is not None:
             for ii in self.empirical_measure:
-                self.empirical_locations[ii], self.empirical_weights[ii] = np.unique(
-                    self.X_scaled[:, ii], return_counts=True
-                )
-                self.empirical_weights[ii] = (
-                    self.empirical_weights[ii] / self.empirical_weights[ii].sum()
-                ).reshape(-1, 1)
-                self.empirical_locations[ii] = self.empirical_locations[ii].reshape(
-                    -1, 1
-                )
+                # extract ii from block
+                locs, counts = np.unique(self.X_scaled[:, ii], return_counts=True)
+                self.empirical_locations[ii] = locs.reshape(-1,1)
+                self.empirical_weights[ii] = (counts / counts.sum()).reshape(-1,1)
 
-        assert np.allclose(
-            self.X_scaled[:, self.binary_index], X[:, self.binary_index]
-        ), "Flow applied to binary inputs"
-        assert np.allclose(
-            self.X_scaled[:, self.categorical_index], X[:, self.categorical_index]
-        ), "Flow applied to categorical inputs"
+        # Sanity checks
+        assert np.allclose(self.X_scaled[:, self.binary_index], X[:, self.binary_index])
+        assert np.allclose(self.X_scaled[:, self.categorical_index], X[:, self.categorical_index])
         if self.gmm_measure is not None:
             assert np.allclose(
                 self.X_scaled[:, np.flatnonzero(self.gmm_measure)],
-                X[:, np.flatnonzero(self.gmm_measure)],
-            ), "Flow applied to GMM measure inputs"
+                X[:, np.flatnonzero(self.gmm_measure)]
+            )
         if self.empirical_measure is not None:
-            assert np.allclose(
-                np.reshape(
-                    np.concatenate(
-                        [
-                            self._get_x_inverse_transformer(i)(self.X_scaled[:, i])
-                            for i in self.empirical_measure
-                        ]
-                    ),
-                    X[:, self.empirical_measure].shape,
-                    order="F",
-                ),
-                X[:, self.empirical_measure],
-            ), "Flow applied to empirical measure inputs"
+            inv = [self._get_x_inverse_transformer(i)(self.X_scaled[:,i]) for i in self.empirical_measure]
+            assert np.allclose(np.stack(inv,axis=1), X[:, self.empirical_measure])
 
+        # Inducing points
         Z = None
-        # using sparse GP when size of data > 1000
         if X.shape[0] > 1000 or self.sparse:
-            X_inducing = self.X_scaled
-
+            X_ind = self.X_scaled
             if initialise_inducing_points:
                 if (p0 is None) and (p is None):
-                    print("all features are continuous")
-                    kmeans = KMeans(n_clusters=self.num_inducing, random_state=0).fit(
-                        X_inducing
-                    )
-                    Z = kmeans.cluster_centers_
+                    Z = KMeans(n_clusters=self.num_inducing, random_state=0).fit(X_ind).cluster_centers_
                 else:
                     Z = initialize_kmeans_with_categorical(
-                        X_inducing,
+                        X_ind,
                         binary_index=self.binary_index,
                         categorical_index=self.categorical_index,
                         continuous_index=self.continuous_index,
                         n_clusters=self.num_inducing,
                     )
             else:
-                Z = X_inducing[: self.num_inducing, :]
+                Z = X_ind[:self.num_inducing]
 
+        # Build final GP model
         self.m = create_model_oak(
             (self.X_scaled, self.Y_scaled),
             max_interaction_depth=self.max_interaction_depth,
@@ -406,6 +433,8 @@ class oak_model:
             empirical_weights=self.empirical_weights,
             gmm_measures=self.estimated_gmm_measures,
             share_var_across_orders=self.share_var_across_orders,
+            base_kernels=self._user_base_kernels,
+            active_dims=self._user_active_dims,
         )
 
     def optimise(
@@ -465,7 +494,7 @@ class oak_model:
         :param X: input to do transformation on
         :return: transformation for continuous features: normalising flow with Gaussian measure or standardization with empirical measure
         """
-        X = apply_normalise_flow(X, self.input_flows)
+        X = apply_normalise_flow(X, self._user_active_dims, self.input_flows)
         if self.empirical_measure is not None:
             X[:, self.empirical_measure] = self.scaler_X_empirical.transform(
                 X[:, self.empirical_measure]
@@ -478,24 +507,34 @@ class oak_model:
 
     def _get_x_inverse_transformer(
         self, i: int
-    ) -> Optional[Union[Normalizer, Callable[[tf.Tensor], tf.Tensor]]]:
+    ) -> Optional[Callable[[tf.Tensor], tf.Tensor]]:
         """
-        :param i: index of feature i
-        :return: inverse transformation for continuous feature i
+        Return a callable that maps the *transformed* column i back to the
+        original data space, or None if we cannot provide a 1-D inverse
+        (e.g. i is part of a 2-D joint flow).
         """
         assert i in self.continuous_index
+        flow = self.input_flows[i]
 
-        if self.empirical_measure is not None and i in self.empirical_measure:
-            continuous_i = self.empirical_measure.index(i)
-            mean_i, std_i = self.scaler_X_empirical.mean_[continuous_i], np.sqrt(
-                self.scaler_X_empirical.var_[continuous_i]
+        # empirical / GMM cases unchanged …
+        if self.empirical_measure and i in self.empirical_measure:
+            idx = self.empirical_measure.index(i)
+            mean_i, std_i = self.scaler_X_empirical.mean_[idx], np.sqrt(
+                self.scaler_X_empirical.var_[idx]
             )
-            transformer_x = lambda x: x * std_i + mean_i
-        elif self.gmm_measure is not None and i in self.gmm_measure:
-            transformer_x = None
-        else:
-            transformer_x = self.input_flows[i].bijector.inverse
-        return transformer_x
+            return lambda x: x * std_i + mean_i
+
+        if self.gmm_measure and self.gmm_measure[i]:
+            return None
+
+        if isinstance(flow, Normalizer):
+            return flow.bijector.inverse
+
+        if isinstance(flow, Normalizer2D):
+            # joint 2-D flow → we cannot invert one dim in isolation
+            return None
+
+        return None
 
     def get_sobol(self, likelihood_variance=False):
         """
@@ -506,12 +545,13 @@ class oak_model:
 
         delta = 1
         mu = 0
-        selected_dims, _ = get_list_representation(self.m.kernel, num_dims=num_dims)
+        selected_dims, _ = get_list_representation(self.m.kernel, num_dims=num_dims, _user_active_dims=self._user_active_dims)
         tuple_of_indices = selected_dims[1:]
         model_indices, sobols = compute_sobol_oak(
             self.m,
             delta,
             mu,
+            self._user_active_dims,
             share_var_across_orders=self.share_var_across_orders,
         )
         if likelihood_variance:
@@ -541,101 +581,115 @@ class oak_model:
         log_bin: Optional[List[bool]] = None,
         num_bin: Optional[int] = 100,
     ):
-        """
-        :param transformer_y: tranformation of the target (e.g. log), we are plotting the median and quantiles after log-transformation
-        :param X_columns: list of feature names
-        :param X_list: list of features from data 1 and data 2, if None, then training features will be plotted on the histogram
-        :param top_n: plot top n effects based on sobol indices
-        :param likelihood_variance: Whether to add the likelihood variance or not to the total Sobol
-        :param save_fig: save the figure saved in the directory
-        :param tikz_path: save latex for figures in the directory
-        :param ylim: list of limits on the y-axis for each feature
-        :param quantile_range: list of quantile range of each feature to plot. If None, use the whole range
-        :param log_axis: Boolean indicating whether to log x-axis and y-axis for the contour plot
-        :param grid_range: list of ranges to plot functions on the contour plot for each feature, if None, use linspace of the feature ranges
-        :param log_bin: list of Booleans indicating whether to log bins for histograms for each feature
-        :param num_bin: number of bins for histogram
-        :return: plotting of individual effects
-        """
+        # -------------------------------------------------------------------------
+        # 0.  House-keeping / defaults
+        # -------------------------------------------------------------------------
         if X_columns is None:
-            X_columns = ["feature %d" % i for i in range(self.num_dims)]
-
+            X_columns = [f"feature {i}" for i in range(self.num_dims)]
         if X_lists is None:
-            X_lists = [None for i in range(len(X_columns))]
-
+            X_lists = [None] * len(X_columns)
         if grid_range is None:
-            grid_range = [None for i in range(len(X_columns))]
-
+            grid_range = [None] * len(X_columns)
         if ylim is None:
-            ylim = [None for i in range(len(X_columns))]
-
+            ylim = [None] * len(X_columns)
         if quantile_range is None:
-            quantile_range = [None for i in range(len(X_columns))]
-
+            quantile_range = [None] * len(X_columns)
         if log_bin is None:
-            log_bin = [False for i in range(len(X_columns))]
+            log_bin = [False] * len(X_columns)
 
-        num_dims = self.num_dims
-        selected_dims, _ = get_list_representation(self.m.kernel, num_dims=num_dims)
-        tuple_of_indices = selected_dims[1:]
+        # -------------------------------------------------------------------------
+        # 1.  Map each dimension → the active-dims block it belongs to
+        # -------------------------------------------------------------------------
+        blocks = self._user_active_dims or [[i] for i in range(self.num_dims)]
+        dim_to_block = {}
+        for blk in blocks:
+            for d in blk:
+                dim_to_block[d] = blk
 
-        self.get_sobol(likelihood_variance=likelihood_variance)
+        # -------------------------------------------------------------------------
+        # 2.  Sobol ordering
+        # -------------------------------------------------------------------------
+        sel, _ = get_list_representation(
+            self.m.kernel,
+            num_dims=self.num_dims,
+            _user_active_dims=self._user_active_dims
+        )
+        tuple_of_indices = sel[1:]  # drop constant term
+        self.get_sobol(likelihood_variance)
         order = np.argsort(self.normalised_sobols)[::-1]
+
+        # -------------------------------------------------------------------------
+        # 3.  Build figure list
+        # -------------------------------------------------------------------------
         fig_list: List[FigureDescription] = []
         if top_n is None:
             top_n = len(order)
-        for n in order[: min(top_n, len(order))]:
-            if len(tuple_of_indices[n]) == 1:
-                i = tuple_of_indices[n][0]
-                if i in self.continuous_index:
+
+        for n in order[:top_n]:
+            dims = tuple_of_indices[n]
+
+            # ---------- 1-D effect ----------------------------------------------
+            if len(dims) == 1:
+                d = dims[0]
+                # skip if this dim sits inside a multi-dim block
+                if len(dim_to_block[d]) > 1:
+                    continue
+
+                # otherwise unchanged (continuous / binary / categorical)
+                if d in self.continuous_index:
                     fig_list.append(
                         plotting_utils.plot_single_effect(
                             m=self.m,
-                            i=i,
-                            covariate_name=X_columns[i],
-                            title=f"{X_columns[i]} (R={self.normalised_sobols[n]:.3f})",
-                            x_transform=self._get_x_inverse_transformer(i),
+                            i=d,
+                            covariate_name=X_columns[d],
+                            title=f"{X_columns[d]} (R={self.normalised_sobols[n]:.3f})",
+                            x_transform=self._get_x_inverse_transformer(d),
                             y_transform=transformer_y,
                             semilogy=semilogy,
                             plot_corrected_data=False,
                             plot_raw_data=False,
-                            X_list=X_lists[i],
+                            X_list=X_lists[d],
                             tikz_path=tikz_path,
-                            ylim=ylim[i],
-                            quantile_range=quantile_range[i],
-                            log_bin=log_bin[i],
+                            ylim=ylim[d],
+                            quantile_range=quantile_range[d],
+                            log_bin=log_bin[d],
                             num_bin=num_bin,
                         )
                     )
-
-                elif i in self.binary_index:
+                elif d in self.binary_index:
                     fig_list.append(
                         plotting_utils.plot_single_effect_binary(
                             self.m,
-                            i,
+                            d,
                             ["0", "1"],
-                            title=f"{X_columns[i]} (R={self.normalised_sobols[n]:.3f})",
+                            title=f"{X_columns[d]} (R={self.normalised_sobols[n]:.3f})",
                             y_transform=transformer_y,
                             semilogy=semilogy,
                             tikz_path=tikz_path,
                         )
                     )
-                else:
+                else:  # categorical
                     fig_list.append(
                         plotting_utils.plot_single_effect_categorical(
                             self.m,
-                            i,
-                            [str(i) for i in range(self.m.kernel.kernels[i].num_cat)],
-                            title=f"{X_columns[i]} (R={self.normalised_sobols[n]:.3f})",
+                            d,
+                            [str(k) for k in range(self.m.kernel.kernels[d].num_cat)],
+                            title=f"{X_columns[d]} (R={self.normalised_sobols[n]:.3f})",
                             y_transform=transformer_y,
                             semilogy=semilogy,
                             tikz_path=tikz_path,
                         )
                     )
 
-            elif len(tuple_of_indices[n]) == 2:
-                i = tuple_of_indices[n][0]
-                j = tuple_of_indices[n][1]
+            # ---------- 2-D interaction -----------------------------------------
+            elif len(dims) == 2:
+                # skip if either kernel-index corresponds to a true 2D-active_dims kernel
+                if any(len(self._user_active_dims[kidx]) == 2 for kidx in dims):
+                    continue
+
+                i, j = dims
+
+                # continuous–continuous
                 if i in self.continuous_index and j in self.continuous_index:
                     fig_list.append(
                         plotting_utils.plot_second_order(
@@ -643,15 +697,11 @@ class oak_model:
                             i,
                             j,
                             [X_columns[i], X_columns[j]],
-                            [
-                                self._get_x_inverse_transformer(i),
-                                self._get_x_inverse_transformer(j),
-                            ],
+                            [self._get_x_inverse_transformer(i),
+                             self._get_x_inverse_transformer(j)],
                             transformer_y,
-                            title=X_columns[i]
-                            + "&"
-                            + X_columns[j]
-                            + f" (R={self.normalised_sobols[n]:.3f})",
+                            title=f"{X_columns[i]} & {X_columns[j]} "
+                                  f"(R={self.normalised_sobols[n]:.3f})",
                             tikz_path=tikz_path,
                             quantile_range=[quantile_range[i], quantile_range[j]],
                             log_axis=log_axis,
@@ -661,6 +711,7 @@ class oak_model:
                         )
                     )
 
+                # continuous–binary
                 elif i in self.continuous_index and j in self.binary_index:
                     fig_list.append(
                         plotting_utils.plot_second_order_binary(
@@ -671,11 +722,13 @@ class oak_model:
                             [X_columns[i], X_columns[j]],
                             x_transforms=[self._get_x_inverse_transformer(i)],
                             y_transform=transformer_y,
-                            title=f"{X_columns[i]} (R={self.normalised_sobols[n]:.3f})",
+                            title=f"{X_columns[i]} & {X_columns[j]} "
+                                  f"(R={self.normalised_sobols[n]:.3f})",
                             tikz_path=tikz_path,
                         )
                     )
 
+                # binary–continuous
                 elif i in self.binary_index and j in self.continuous_index:
                     fig_list.append(
                         plotting_utils.plot_second_order_binary(
@@ -686,20 +739,23 @@ class oak_model:
                             [X_columns[j], X_columns[i]],
                             x_transforms=[self._get_x_inverse_transformer(j)],
                             y_transform=transformer_y,
-                            title=X_columns[i]
-                            + "&"
-                            + X_columns[j]
-                            + f" (R={self.normalised_sobols[n]:.3f})",
+                            title=f"{X_columns[i]} & {X_columns[j]} "
+                                  f"(R={self.normalised_sobols[n]:.3f})",
                             tikz_path=tikz_path,
                         )
                     )
 
             else:
-                raise NotImplementedError
+                raise NotImplementedError("Higher-order plots are not yet supported.")
 
+        # -------------------------------------------------------------------------
+        # 4.  Save if requested
+        # -------------------------------------------------------------------------
         if save_fig is not None:
-            save_fig_list(fig_list=fig_list, dirname=Path(save_fig))
-    
+            save_fig_list(fig_list, dirname=Path(save_fig))
+
+        return fig_list
+
     def sobol_summary(
         self,
         covariate_names: List[str],

@@ -222,3 +222,103 @@ class Normalizer2D(gpflow.base.Module):
         ax_y.hist(y[:, 0], bins=20, orientation="horizontal")
         ax_y.set_xlim(ax_y.get_xlim()[::-1])
         plt.title(title)
+
+
+
+class NormalizerGeneralized(gpflow.base.Module):
+    """
+    D-dimensional extension of the Amazon OAK *Normalizer* with optional decorrelation.
+
+    * By default (`decorrelate=False`) it behaves like D independent 1D normalisers.
+    * With `decorrelate=True`, it appends an affine whitening transformation
+      based on the sample mean and Cholesky of the marginal covariance after
+      the D independent flows. This makes the output approximately N(0, I).
+    """
+
+    def __init__(self, x, log=None, decorrelate: bool = True,
+                 eps: float = SMALL, name="normalizer", **kwargs):
+        super().__init__(name=name, **kwargs)
+
+        x = np.asarray(x)
+        assert x.ndim == 2, "Expected input shape (N, D)."
+        self.x = x
+        self.eps = eps
+        self.decorrelate = decorrelate
+
+        D = x.shape[1]
+        if log is None:
+            log = [False] * D
+        assert len(log) == D, "Length of `log` must match number of dimensions"
+
+        # ------------------------------------------------------------------
+        # 1. Per-dimension 1D flows
+        # ------------------------------------------------------------------
+        bijectors = []
+        for d in range(D):
+            xd = x[:, d]
+            if log[d]:
+                offset = np.min(xd) - 1.0 - eps
+                chain = tfb.Chain([
+                    *_standardiser(np.log(xd - offset), eps),
+                    tfb.Log(),
+                    tfb.Shift(-offset),
+                    tfb.SinhArcsinh(
+                        skewness=gpflow.Parameter(0.0, dtype=DTYPE),
+                        tailweight=gpflow.Parameter(1.0, transform=tfb.Exp(), dtype=DTYPE),
+                    ),
+                ], name=f"flow_dim{d}")
+            else:
+                chain = tfb.Chain([
+                    *_standardiser(xd, eps),
+                    tfb.SinhArcsinh(
+                        skewness=gpflow.Parameter(0.0, dtype=DTYPE),
+                        tailweight=gpflow.Parameter(1.0, transform=tfb.Exp(), dtype=DTYPE),
+                    ),
+                ], name=f"flow_dim{d}")
+            bijectors.append(chain)
+
+        block = tfb.Blockwise(bijectors, block_sizes=[1]*D, name="per_dim_block")
+        self._block = block
+
+        # ------------------------------------------------------------------
+        # 2. Optional decorrelation (fixed affine)
+        # ------------------------------------------------------------------
+        if decorrelate:
+            z0 = block.forward(x).numpy()
+            mean = z0.mean(axis=0)
+            cov = np.cov(z0.T) + eps * np.eye(D)
+            chol = np.linalg.cholesky(cov)
+            chol_inv = np.linalg.inv(chol)
+
+            self._mean = mean
+            self._chol_inv = chol_inv
+
+            centre = tfb.Shift(-mean, name="centre")
+            whiten = tfb.ScaleMatvecTriL(chol_inv, name="whiten")
+            self.bijector = tfb.Chain([whiten, centre, block], name="flow_D_decor")
+        else:
+            self.bijector = block
+
+    def forward(self, z):
+        return self.bijector.forward(tf.cast(z, DTYPE))
+
+    def inverse(self, y):
+        return self.bijector.inverse(tf.cast(y, DTYPE))
+
+    def log_det_jacobian(self, z):
+        return self.bijector.forward_log_det_jacobian(tf.cast(z, DTYPE), event_ndims=1)
+
+    def KL_objective(self):
+        z = self.x.astype(np.float64)
+        y = self.forward(z)
+        return 0.5 * tf.reduce_mean(tf.reduce_sum(tf.square(y), axis=-1)) \
+            - tf.reduce_mean(self.log_det_jacobian(z))
+
+    def kstest(self):
+        y = self.forward(self.x).numpy()
+        test_results = []
+        for d in range(y.shape[1]):
+            s, p = stats.kstest(y[:, d], "norm")
+            test_results.append((s, p))
+            print(f"Dim {d}: KS stat = {s:.3f}, p = {p:.3g}")
+        return test_results

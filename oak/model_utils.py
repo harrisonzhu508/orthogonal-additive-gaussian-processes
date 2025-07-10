@@ -19,7 +19,7 @@ from sklearn.mixture import GaussianMixture
 from tensorflow_probability import distributions as tfd
 from oak import plotting_utils
 from oak.input_measures import MOGMeasure
-from oak.normalising_flow import Normalizer, Normalizer2D
+from oak.normalising_flow import Normalizer, Normalizer2D, NormalizerGeneralized
 from oak.oak_kernel import OAKKernel, get_list_representation
 from oak.plotting_utils import FigureDescription, save_fig_list
 from oak.utils import compute_sobol_oak, initialize_kmeans_with_categorical
@@ -216,7 +216,7 @@ def apply_normalise_flow(
         if input_flows[d] is not None:
             if len(this_active_dims) == 1:            # old 1-D behaviour
                 X[:, this_active_dims] = flow.bijector(X[:, this_active_dims])
-            elif len(this_active_dims)==2:                          # joint block   (e.g. dims [1,2])
+            elif len(this_active_dims) > 1:                          # joint block   (e.g. dims [1,2])
                 X[:, this_active_dims] = flow.bijector(X[:, this_active_dims])
             else:
                 raise NotImplementedError("Normalising flow not implemented for blocks of size > 2")
@@ -349,11 +349,14 @@ class oak_model:
                 continue
 
             if self.use_normalising_flow:
+                print(f"Normalising flow for block {blk} with size {len(blk)}")
                 if len(blk) == 1:
                     flow = Normalizer(X[:, blk[0]])
-                elif len(blk) == 2:
-                    flow = Normalizer2D(X[:, blk])
+                elif len(blk) > 1:
+                    # flow = Normalizer2D(X[:, blk])
+                    flow = NormalizerGeneralized(X[:, blk])
                 else:
+                    print(len(blk)>1)
                     raise NotImplementedError(
                         f"Normalising flow not implemented for blocks of size {len(blk)}"
                     )
@@ -529,7 +532,21 @@ class oak_model:
 
         if isinstance(flow, Normalizer):
             return flow.bijector.inverse
-
+            
+        if isinstance(flow, NormalizerGeneralized):
+            if flow.decorrelate:
+                # joint whitening step → needs the full y vector
+                def inv_full(y_full: tf.Tensor) -> tf.Tensor:
+                    # undo entire chain, then slice out dimension i
+                    x_recon = flow.bijector.inverse(y_full)  # [..., D]
+                    return x_recon[..., i]                  # [...,]
+                return inv_full
+            else:
+                # independent per‐dim flows → can invert y_i alone
+                def inv_1d(y_i: tf.Tensor) -> tf.Tensor:
+                    return flow._block.bijectors[i].inverse(y_i)
+                return inv_1d
+        
         if isinstance(flow, Normalizer2D):
             # joint 2-D flow → we cannot invert one dim in isolation
             return None

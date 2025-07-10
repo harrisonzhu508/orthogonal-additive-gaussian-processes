@@ -112,35 +112,35 @@ class OrthogonalRBFKernel(gpflow.kernels.Kernel):
                     sigma2 = self.base_kernel.variance
                     return sigma2 * l / tf.sqrt(l**2 + 2 * var)
 
-            elif D==2:
-                # D-dimensional isotropic Gaussian
-                def cov_X_s(X):
-                    tf.debugging.assert_shapes([(X, ("N", D))])
-                    l = self.base_kernel.lengthscales  # shape [1]
-                    sigma2 = self.base_kernel.variance
-                    # by default, mu and var are 1D tensors
-                    l2 = l**2
-                    denom = l2 + var
-                    norm = sigma2 * (l2 / denom)
-                    diff = X - mu
-                    exponent = -0.5 * tf.reduce_sum(diff**2 / denom, axis=1, keepdims=True)
-                    
-                    return norm * tf.exp(exponent)
-
-                def var_s():
-                    l = self.base_kernel.lengthscales  # shape [1]
-                    sigma2 = self.base_kernel.variance
-                    l2 = l**2
-                    denom = l2 + 2*var
-                    # log σ² + log(l²) − log(denom)
-                    log_vari = tf.math.log(sigma2) + 2*tf.math.log(l) - tf.math.log(denom)
-                    return tf.exp(log_vari)
             else:
-                raise NotImplementedError(
-                    "OrthogonalRBFKernel does not support D > 2 for GaussianMeasure"
-                )
+                # D-dimensional isotropic Gaussian
+                def cov_X_s(X: tf.Tensor) -> tf.Tensor:
+                    tf.debugging.assert_shapes([(X, ("N", D))])
+                    l = self.base_kernel.lengthscales
+                    sigma2 = self.base_kernel.variance
+                    l2 = l ** 2
+                    # denom = ℓ² + var
+                    denom = l2 + var
+                    # the normalisation prefactor: σ² * (ℓ² / (ℓ² + var))^(D/2)
+                    scale = sigma2 * tf.pow(l2 / denom, D / 2)
+                    # exponent: –½‖x – μ‖² / (ℓ² + var)
+                    diffsq = tf.reduce_sum((X - mu) ** 2, axis=1, keepdims=True)
+                    exponent = -0.5 * diffsq / denom
+                    return scale * tf.exp(exponent)
 
+                def var_s() -> tf.Tensor:
+                    # this is K_{P,P} = ∫∫ K(x,y) dP(x) dP(y)
+                    l = self.base_kernel.lengthscales
+                    sigma2 = self.base_kernel.variance
+                    l2 = l ** 2
+                    # denom2 = ℓ² + 2·var
+                    denom2 = l2 + 2 * var
+                    # variance of the embedding: σ² * (ℓ² / (ℓ² + 2·var))^(D/2)
+                    return sigma2 * tf.pow(l2 / denom2, D / 2)
+                
         if isinstance(self.measure, EmpiricalMeasure):
+
+            print(f"OrthogonalRBFKernel: EmpiricalMeasure with {len(self.measure.location)} points")
 
             def cov_X_s(X):
                 location = self.measure.location

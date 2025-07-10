@@ -147,6 +147,10 @@ class OAKKernel(gpflow.kernels.Kernel):
                             ),
                             active_dims=active_dims[dim],
                         )
+                        if share_var_across_orders:
+                            k.base_kernel.variance = tf.ones(
+                                1, dtype=gpflow.config.default_float()
+                        )
                     elif gmm_measures[dim] is not None:
                         k = OrthogonalRBFKernel(
                             base_kernels[dim](),

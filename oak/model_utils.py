@@ -776,6 +776,8 @@ class oak_model:
     def sobol_summary(
         self,
         covariate_names: List[str],
+        time_point: Optional[float] = None,
+        time_dim: Optional[int] = None,
         likelihood_variance: bool = False
     ) -> pd.DataFrame:
         """

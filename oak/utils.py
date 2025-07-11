@@ -335,104 +335,104 @@ def compute_L_empirical_measure(
     return L
 
 
-def compute_sobol_oak(
-    model: gpflow.models.BayesianModel,
-    delta: float,
-    mu: float,
-    _user_active_dims: List[List[int]] = None,
-    share_var_across_orders: Optional[bool] = True,
-) -> Tuple[List[List[int]], List[float]]:
-    """
-    Compute sobol indices for Duvenaud model
-    :param model: gpflowm odel
-    :param delta: prior variance of measure p(X)
-    :param mu: prior mean of measure p(x)
-    :param share_var_across_orders: whether to share the same variance across orders,
-           if False, it uses original OrthogonalRBFKernel kernel \prod_i(1+k_i).
-    :return: list of input dimension indices and list of sobol indices
-    """
-    num_dims = model.data[0].shape[1]
+# def compute_sobol_oak(
+#     model: gpflow.models.BayesianModel,
+#     delta: float,
+#     mu: float,
+#     _user_active_dims: List[List[int]] = None,
+#     share_var_across_orders: Optional[bool] = True,
+# ) -> Tuple[List[List[int]], List[float]]:
+#     """
+#     Compute sobol indices for Duvenaud model
+#     :param model: gpflowm odel
+#     :param delta: prior variance of measure p(X)
+#     :param mu: prior mean of measure p(x)
+#     :param share_var_across_orders: whether to share the same variance across orders,
+#            if False, it uses original OrthogonalRBFKernel kernel \prod_i(1+k_i).
+#     :return: list of input dimension indices and list of sobol indices
+#     """
+#     num_dims = model.data[0].shape[1]
 
-    selected_dims_oak, kernel_list = get_list_representation(
-        model.kernel, num_dims=num_dims, _user_active_dims=_user_active_dims
-    )
-    selected_dims_oak = selected_dims_oak[1:]  # skip constant term
-    if isinstance(model, (gpflow.models.SGPR, gpflow.models.SVGP)):
-        X = model.inducing_variable.Z
-    else:
-        X = model.data[0]
-    N = X.shape[0]
-    alpha = get_model_sufficient_statistics(model, get_L=False)
-    sobol = []
-    L_list = []
-    for kernel in kernel_list:
-        # print(kernel)
-        # assert isinstance(kernel, KernelComponenent)
-        if len(kernel.iComponent_list) == 0:
-            continue  # skip constant term
-        L = np.ones((N, N))
-        n_order = len(kernel.kernels)
-        for j in range(len(kernel.kernels)):
-            if share_var_across_orders:
-                if j < 1:
-                    v = kernel.oak_kernel.variances[n_order].numpy()
-                else:
-                    v = 1
-            else:
-                v = kernel.kernels[j].base_kernel.variance.numpy()
+#     selected_dims_oak, kernel_list = get_list_representation(
+#         model.kernel, num_dims=num_dims, _user_active_dims=_user_active_dims
+#     )
+#     selected_dims_oak = selected_dims_oak[1:]  # skip constant term
+#     if isinstance(model, (gpflow.models.SGPR, gpflow.models.SVGP)):
+#         X = model.inducing_variable.Z
+#     else:
+#         X = model.data[0]
+#     N = X.shape[0]
+#     alpha = get_model_sufficient_statistics(model, get_L=False)
+#     sobol = []
+#     L_list = []
+#     for kernel in kernel_list:
+#         # print(kernel)
+#         # assert isinstance(kernel, KernelComponenent)
+#         if len(kernel.iComponent_list) == 0:
+#             continue  # skip constant term
+#         L = np.ones((N, N))
+#         n_order = len(kernel.kernels)
+#         for j in range(len(kernel.kernels)):
+#             if share_var_across_orders:
+#                 if j < 1:
+#                     v = kernel.oak_kernel.variances[n_order].numpy()
+#                 else:
+#                     v = 1
+#             else:
+#                 v = kernel.kernels[j].base_kernel.variance.numpy()
 
-            dim = kernel.kernels[j].active_dims[0]
+#             dim = kernel.kernels[j].active_dims[0]
 
-            if isinstance(kernel.kernels[j], OrthogonalRBFKernel):
+#             if isinstance(kernel.kernels[j], OrthogonalRBFKernel):
 
-                if isinstance(kernel.kernels[j].base_kernel, gpflow.kernels.RBF) and (
-                    not isinstance(kernel.kernels[j].measure, EmpiricalMeasure)
-                    and (not isinstance(kernel.kernels[j].measure, MOGMeasure))
-                ):
-                    l = kernel.kernels[j].base_kernel.lengthscales.numpy()
-                    L = L * compute_L(
-                        X,
-                        l,
-                        v,
-                        dim,
-                        delta,
-                        mu,
-                    )
+#                 if isinstance(kernel.kernels[j].base_kernel, gpflow.kernels.RBF) and (
+#                     not isinstance(kernel.kernels[j].measure, EmpiricalMeasure)
+#                     and (not isinstance(kernel.kernels[j].measure, MOGMeasure))
+#                 ):
+#                     l = kernel.kernels[j].base_kernel.lengthscales.numpy()
+#                     L = L * compute_L(
+#                         X,
+#                         l,
+#                         v,
+#                         dim,
+#                         delta,
+#                         mu,
+#                     )
 
-                elif isinstance(kernel.kernels[j].measure, EmpiricalMeasure):
-                    L = (
-                        v ** 2
-                        * L
-                        * compute_L_empirical_measure(
-                            kernel.kernels[j].measure.location,
-                            kernel.kernels[j].measure.weights,
-                            kernel.kernels[j],
-                            tf.reshape(X[:, dim], [-1, 1]),
-                        )
-                    )
-                else:
-                    raise NotImplementedError
+#                 elif isinstance(kernel.kernels[j].measure, EmpiricalMeasure):
+#                     L = (
+#                         v ** 2
+#                         * L
+#                         * compute_L_empirical_measure(
+#                             kernel.kernels[j].measure.location,
+#                             kernel.kernels[j].measure.weights,
+#                             kernel.kernels[j],
+#                             tf.reshape(X[:, dim], [-1, 1]),
+#                         )
+#                     )
+#                 else:
+#                     raise NotImplementedError
 
-            elif isinstance(kernel.kernels[j], OrthogonalBinary):
-                p0 = kernel.kernels[j].p0
-                L = L * compute_L_binary_kernel(X, p0, v, dim)
+#             elif isinstance(kernel.kernels[j], OrthogonalBinary):
+#                 p0 = kernel.kernels[j].p0
+#                 L = L * compute_L_binary_kernel(X, p0, v, dim)
 
-            elif isinstance(kernel.kernels[j], OrthogonalCategorical):
-                p = kernel.kernels[j].p
-                W = kernel.kernels[j].W
-                kappa = kernel.kernels[j].kappa
-                L = L * compute_L_categorical_kernel(X, W, kappa, p, v, dim)
+#             elif isinstance(kernel.kernels[j], OrthogonalCategorical):
+#                 p = kernel.kernels[j].p
+#                 W = kernel.kernels[j].W
+#                 kappa = kernel.kernels[j].kappa
+#                 L = L * compute_L_categorical_kernel(X, W, kappa, p, v, dim)
 
-            else:
-                raise NotImplementedError
-        L_list.append(L)
-        mean_term = tf.tensordot(
-            tf.tensordot(tf.transpose(alpha), L, axes=1), alpha, axes=1
-        ).numpy()[0][0]
-        sobol.append(mean_term)
+#             else:
+#                 raise NotImplementedError
+#         L_list.append(L)
+#         mean_term = tf.tensordot(
+#             tf.tensordot(tf.transpose(alpha), L, axes=1), alpha, axes=1
+#         ).numpy()[0][0]
+#         sobol.append(mean_term)
 
-    assert len(selected_dims_oak) == len(sobol)
-    return selected_dims_oak, sobol
+#     assert len(selected_dims_oak) == len(sobol)
+#     return selected_dims_oak, sobol
 
 
 def compute_sobol(
@@ -572,3 +572,110 @@ def initialize_kmeans_with_categorical(
     Z[:, continuous_index] = kmeans_continuous.cluster_centers_
 
     return Z
+
+
+def compute_sobol_oak(
+    model: gpflow.models.BayesianModel,
+    delta: float,
+    mu: float,
+    time_point: Optional[float] = None,    # fixed time value for conditional Sobol
+    time_dim:   Optional[int]   = None,    # index of the time column in X
+    _user_active_dims: List[List[int]] = None,
+    share_var_across_orders: Optional[bool] = True,
+) -> Tuple[List[List[int]], List[float]]:
+    """
+    Compute Sobol indices for the OAK model, optionally conditioned on a fixed time.
+    :param model:    a trained gpflow BayesianModel using OAKKernel
+    :param delta:    prior variance of input measure p(X)
+    :param mu:       prior mean of input measure p(X)
+    :param time_point: if provided, fix the time dimension to this value for Sobol at that time
+    :param time_dim:   index of the time column in the input X
+    :param _user_active_dims: custom active dims override
+    :param share_var_across_orders: if True, use shared variance for interaction orders
+    :return: a tuple of (selected input dimension lists, sobol index values)
+    """
+    # Prepare data and kernel list
+    num_dims = model.data[0].shape[1]
+    selected_dims_oak, kernel_list = get_list_representation(
+        model.kernel, num_dims=num_dims, _user_active_dims=_user_active_dims
+    )
+    selected_dims_oak = selected_dims_oak[1:]  # skip constant offset term
+    # Choose data matrix: inducing points for sparse, or full data for full GP
+    if isinstance(model, (gpflow.models.SGPR, gpflow.models.SVGP)):
+        X = model.inducing_variable.Z.numpy()
+    else:
+        X = model.data[0].numpy()
+    N = X.shape[0]
+    # Compute alpha statistics once
+    alpha = get_model_sufficient_statistics(model, get_L=False)
+
+    sobol = []
+    # Loop over each kernel component
+    for kernel in kernel_list:
+        # skip constant term
+        if len(kernel.iComponent_list) == 0:
+            continue
+        # initialize L-matrix for this component
+        L = np.ones((N, N))
+        n_order = len(kernel.kernels)
+        for j, subkernel in enumerate(kernel.kernels):
+            # variance multiplier
+            if share_var_across_orders:
+                v = kernel.oak_kernel.variances[n_order].numpy() if j < 1 else 1.0
+            else:
+                v = subkernel.base_kernel.variance.numpy()
+            # detect active dimension
+            dim = subkernel.active_dims[0]
+            # if this is the time dimension and conditioning on time,
+            # simply use k(t_j, t_j)=variance v
+            if time_point is not None and time_dim is not None and dim == time_dim:
+                L *= v
+                continue
+            # RBF continuous kernel case
+            if isinstance(subkernel, OrthogonalRBFKernel):
+                # standard RBF with analytical integrals
+                if (
+                    isinstance(subkernel.base_kernel, gpflow.kernels.RBF)
+                    and not isinstance(subkernel.measure, EmpiricalMeasure)
+                    and not isinstance(subkernel.measure, MOGMeasure)
+                ):
+                    l = subkernel.base_kernel.lengthscales.numpy()
+                    L *= compute_L(X, l, v, dim, delta, mu)
+                # empirical measure case
+                elif isinstance(subkernel.measure, EmpiricalMeasure):
+                    L *= (
+                        v**2
+                        * compute_L_empirical_measure(
+                            subkernel.measure.location,
+                            subkernel.measure.weights,
+                            subkernel,
+                            tf.reshape(X[:, dim], [-1, 1]),
+                        ).numpy()
+                    )
+                else:
+                    raise NotImplementedError("Unsupported measure for RBF")
+            # binary kernel case
+            elif isinstance(subkernel, OrthogonalBinary):
+                p0 = subkernel.p0
+                L *= compute_L_binary_kernel(X, p0, v, dim)
+            # categorical kernel case
+            elif isinstance(subkernel, OrthogonalCategorical):
+                p = subkernel.p
+                W = subkernel.W.numpy()
+                kappa = subkernel.kappa.numpy()
+                L *= compute_L_categorical_kernel(X, W, kappa, p, v, dim)
+            else:
+                raise NotImplementedError(f"Unsupported kernel type: {type(subkernel)}")
+        # compute Sobol numerator via trace(alpha^T L alpha)
+        mean_term = (
+            tf.tensordot(
+                tf.tensordot(tf.transpose(alpha), L, axes=1),
+                alpha,
+                axes=1,
+            )
+            .numpy()[0][0]
+        )
+        sobol.append(mean_term)
+    # ensure dims align with sobol
+    assert len(selected_dims_oak) == len(sobol)
+    return selected_dims_oak, sobol

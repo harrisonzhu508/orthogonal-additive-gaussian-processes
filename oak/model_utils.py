@@ -406,7 +406,7 @@ class oak_model:
 
         # Inducing points
         Z = None
-        if X.shape[0] > 1000 or self.sparse:
+        if X.shape[0] > 5000 or self.sparse:
             X_ind = self.X_scaled
             if initialise_inducing_points:
                 if (p0 is None) and (p is None):
@@ -564,6 +564,8 @@ class oak_model:
         mu = 0
         selected_dims, _ = get_list_representation(self.m.kernel, num_dims=num_dims, _user_active_dims=self._user_active_dims)
         tuple_of_indices = selected_dims[1:]
+        if time_point is not None:
+            time_point = self.input_flows[time_dim].bijector([time_point])
         model_indices, sobols = compute_sobol_oak(
             self.m,
             delta,

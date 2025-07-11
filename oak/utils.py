@@ -598,71 +598,49 @@ def compute_sobol_oak(
     model: "gpflow.models.BayesianModel",
     delta: float,
     mu: float,
-    time_point: Optional[float] = None,     # value t*; None → unconditional
+    time_point: Optional[float] = None,     # None → unconditional
     time_dim:   Optional[int]   = None,     # column index of time
     _user_active_dims: Optional[List[List[int]]] = None,
     share_var_across_orders: bool = True,
 ) -> Tuple[List[List[int]], List[float]]:
-    r"""
-    Compute *unnormalised* Sobol numerators  αᵀ L α  for an Orthogonal
-    Additive Kernel (OAK) GP, optionally conditioned on a single time point.
-
-    • For **exact GPs** (GPR), the data rows are sliced to `time_point`
-      so the empirical distribution is the correct conditional measure.
-
-    • For **sparse GPs** (SGPR / SVGP), we *keep* the full inducing set
-      (slicing would usually leave zero points) and enforce conditioning
-      through an outer-product factor
-           k_t(t*,X_t) k_t(t*,X_t)ᵀ
-      inside the element-wise L matrix, exactly as required by Eq. (40)
-      of Additive Gaussian Processes Revisited.
-
-    Parameters
-    ----------
-    model : gpflow.models.BayesianModel
-    delta, mu : float
-        Hyper-parameters of the Gaussian input measure p(X).
-    time_point : float or None
-        If given, compute indices at t = `time_point`.
-    time_dim : int or None
-        Column index of the time variable (required if `time_point` set).
-    _user_active_dims : list[list[int]], optional
-        Manual override of kernel active dims.
-    share_var_across_orders : bool, default True
-        Single variance parameter per interaction order if True.
-
-    Returns
-    -------
-    selected_dims : list[list[int]]
-        Active dims for each (non-constant) OAK component.
-    sobol_vals : list[float]
-        Unnormalised numerators.  Use `sobol_normalise` for indices.
     """
-    # ── 1.  Kernel structure (skip constant term) ────────────────────────
+    Sobol numerators αᵀ L α for an OAK GP, optionally at a fixed time t*.
+
+    Variance handling:
+        • If `share_var_across_orders` is True, the *first* sub-kernel of
+          each interaction order gets `v = component.oak_kernel.variances[d]`;
+          all remaining sub-kernels use v = 1.       (Same as baseline.)
+        • Otherwise `v` is taken from the *sub-kernel* itself:
+              - `subk.base_kernel.variance`  (OrthogonalRBFKernel & friends)
+              - `subk.variance`              (OrthogonalBinary / Categorical)
+
+    The rest of the routine follows the baseline exactly, with a single
+    extension: when `dim == time_dim` **and** `time_point` is given, we
+    replace the usual integral factor by
+          k(t*, X_t) k(t*, X_t)ᵀ,
+    which realises the conditional variance definition.
+    """
+    # 1.  kernel structure (skip constant term) -------------------------
     num_dims = model.data[0].shape[1]
     sel, components = get_list_representation(
         model.kernel, num_dims=num_dims, _user_active_dims=_user_active_dims
     )
-    sel, components = sel[1:], components[1:]      # drop constant part
+    sel, components = sel[1:], components[1:]
 
-    # ── 2.  Inputs X and α statistics ────────────────────────────────────
-    is_sparse = isinstance(model, (gpflow.models.SGPR, gpflow.models.SVGP))
-    X_full = model.inducing_variable.Z.numpy() if is_sparse else model.data[0].numpy()
-    alpha_full = get_model_sufficient_statistics(model, get_L=False)  # shape (N,1)
+    # 2.  inputs X and α statistics -------------------------------------
+    is_sparse  = isinstance(model, (gpflow.models.SGPR, gpflow.models.SVGP))
+    X_full     = model.inducing_variable.Z.numpy() if is_sparse else model.data[0].numpy()
+    alpha_full = get_model_sufficient_statistics(model, get_L=False)     # (N,1)
 
     if time_point is not None:
         if time_dim is None:
-            raise ValueError("`time_dim` must be set when `time_point` is provided.")
-
+            raise ValueError("`time_dim` must be set when `time_point` is given.")
         if is_sparse:
-            # keep whole inducing set
             X, alpha = X_full, alpha_full
         else:
             mask = np.isclose(X_full[:, time_dim], time_point, atol=1e-9, rtol=1e-6)
             if not np.any(mask):
-                raise ValueError(
-                    f"No training row matches time_dim={time_dim} ≈ {time_point}."
-                )
+                raise ValueError(f"No training row matches t*={time_point} in column {time_dim}.")
             X, alpha = X_full[mask], alpha_full[mask]
     else:
         X, alpha = X_full, alpha_full
@@ -670,31 +648,39 @@ def compute_sobol_oak(
     N = X.shape[0]
     sobol_vals: List[float] = []
 
-    # ── 3.  Component loop ───────────────────────────────────────────────
+    # 3.  component loop ------------------------------------------------
     for comp in components:
+        if len(comp.iComponent_list) == 0:
+            continue                                  # skip constant term
         L_np = np.ones((N, N))
         n_order = len(comp.kernels)
 
         for j, subk in enumerate(comp.kernels):
-            # variance multiplier
-            if share_var_across_orders and j == 0:
-                v = comp.oak_kernel.variances[n_order].numpy()
+            # -------- variance selection  (exact copy of baseline) ----
+            if share_var_across_orders:
+                if j < 1:                                           # first factor
+                    v = comp.oak_kernel.variances[n_order].numpy()
+                else:
+                    v = 1.0
             else:
-                v = subk.base_kernel.variance.numpy()
+                # per-kernel variance
+                if hasattr(subk, "variance"):                       # Binary / Cat.
+                    v = subk.variance.numpy()
+                else:                                               # RBF / others
+                    v = subk.base_kernel.variance.numpy()
 
             dim = subk.active_dims[0]
 
-            # ── Time dimension factor (outer product) ──────────────────
+            # -------- time dimension branch --------------------------
             if time_point is not None and dim == time_dim:
-                # k(t*,X_time) shape (N,)
-                k_vec = subk(
-                    tf.fill([N, 1], tf.cast(time_point, X.dtype)),
+                k_vec = subk(                                       # shape (1,N)
+                    tf.reshape(tf.constant(time_point, dtype=X.dtype), (1, 1)),
                     tf.reshape(X[:, dim], (-1, 1)),
-                ).numpy().flatten()
+                ).numpy().flatten()                                 # length N
                 L_np *= np.outer(k_vec, k_vec)
                 continue
 
-            # ── Continuous RBF kernel ──────────────────────────────────
+            # -------- continuous RBF --------------------------------
             if isinstance(subk, OrthogonalRBFKernel):
                 if (
                     isinstance(subk.base_kernel, gpflow.kernels.RBF)
@@ -715,11 +701,11 @@ def compute_sobol_oak(
                 else:
                     raise NotImplementedError("Unsupported measure for RBF")
 
-            # ── Binary kernel ───────────────────────────────────────────
+            # -------- binary ----------------------------------------
             elif isinstance(subk, OrthogonalBinary):
                 L_np *= compute_L_binary_kernel(X, subk.p0, v, dim)
 
-            # ── Categorical kernel ─────────────────────────────────────
+            # -------- categorical -----------------------------------
             elif isinstance(subk, OrthogonalCategorical):
                 L_np *= compute_L_categorical_kernel(
                     X,
@@ -730,18 +716,16 @@ def compute_sobol_oak(
                     dim,
                 )
             else:
-                raise NotImplementedError(f"Unsupported kernel: {type(subk)}")
+                raise NotImplementedError(f"Unsupported kernel type: {type(subk)}")
 
-        # ── 4.  αᵀ L α  (single matmul) ─────────────────────────────────
-        L_tf = tf.convert_to_tensor(L_np, dtype=alpha.dtype)
-        alpha_tf = tf.reshape(alpha, [-1, 1])          # (N,1)
+        # 4.  αᵀ L α  -----------------------------------------------
+        L_tf     = tf.convert_to_tensor(L_np, dtype=alpha.dtype)
+        alpha_tf = tf.reshape(alpha, [-1, 1])
         num = tf.squeeze(tf.matmul(alpha_tf, tf.matmul(L_tf, alpha_tf),
                                    transpose_a=True)).numpy()
-        # guard against NaN / slight negatives
         sobol_vals.append(0.0 if np.isnan(num) else max(0.0, num))
 
     if len(sel) != len(sobol_vals):
-        raise RuntimeError("Mismatch between kernel components and numerators.")
+        raise RuntimeError("Kernel parsing mismatch.")
 
-    print("OHO", sobol_vals)
     return sel, sobol_vals

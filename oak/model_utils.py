@@ -568,9 +568,9 @@ class oak_model:
             self.m,
             delta,
             mu,
+            time_point, 
+            time_dim,
             self._user_active_dims,
-            time_point=time_point, 
-            time_dim=time_dim,
             share_var_across_orders=self.share_var_across_orders,
         )
         if likelihood_variance:

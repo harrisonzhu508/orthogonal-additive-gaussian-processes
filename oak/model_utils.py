@@ -553,7 +553,7 @@ class oak_model:
 
         return None
 
-    def get_sobol(self, likelihood_variance=False):
+    def get_sobol(self, likelihood_variance=False, time_point=None, time_dim=None):
         """
         :param likelihood_variance: whether to include likelihood noise in Sobol calculation
         :return: normalised Sobol indices for each additive term in the model
@@ -569,6 +569,8 @@ class oak_model:
             delta,
             mu,
             self._user_active_dims,
+            time_point=time_point, 
+            time_dim=time_dim,
             share_var_across_orders=self.share_var_across_orders,
         )
         if likelihood_variance:
@@ -789,7 +791,7 @@ class oak_model:
         :param likelihood_variance: whether to include the likelihood noise in normalization
         """
         # run or re‐run Sobol
-        sobols = self.get_sobol(likelihood_variance=likelihood_variance)
+        sobols = self.get_sobol(likelihood_variance=likelihood_variance, time_point=time_point, time_dim=time_dim)
         tuples = self.tuple_of_indices  # e.g. [(0,), (1,), (0,1), ...]
 
         def name_for(tup):

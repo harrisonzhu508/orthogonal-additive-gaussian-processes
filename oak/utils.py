@@ -574,108 +574,174 @@ def initialize_kmeans_with_categorical(
     return Z
 
 
+import numpy as np
+import tensorflow as tf
+from typing import List, Optional, Tuple
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Helper for safe normalisation
+# ──────────────────────────────────────────────────────────────────────────────
+def sobol_normalise(sobol_vals: List[float], eps: float = 1e-12) -> List[float]:
+    """
+    Turn a list of Sobol numerators into first-order indices, guarding
+    against a zero or NaN total variance.
+    """
+    total = float(np.nansum(sobol_vals))
+    total = total if total > eps else eps
+    return [v / total for v in sobol_vals]
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+#  Main routine
+# ──────────────────────────────────────────────────────────────────────────────
 def compute_sobol_oak(
-    model: gpflow.models.BayesianModel,
+    model: "gpflow.models.BayesianModel",
     delta: float,
     mu: float,
-    time_point: Optional[float] = None,    # fixed time value for conditional Sobol
-    time_dim:   Optional[int]   = None,    # index of the time column in X
-    _user_active_dims: List[List[int]] = None,
-    share_var_across_orders: Optional[bool] = True,
+    time_point: Optional[float] = None,     # value t*; None → unconditional
+    time_dim:   Optional[int]   = None,     # column index of time
+    _user_active_dims: Optional[List[List[int]]] = None,
+    share_var_across_orders: bool = True,
 ) -> Tuple[List[List[int]], List[float]]:
+    r"""
+    Compute *unnormalised* Sobol numerators  αᵀ L α  for an Orthogonal
+    Additive Kernel (OAK) GP, optionally conditioned on a single time point.
+
+    • For **exact GPs** (GPR), the data rows are sliced to `time_point`
+      so the empirical distribution is the correct conditional measure.
+
+    • For **sparse GPs** (SGPR / SVGP), we *keep* the full inducing set
+      (slicing would usually leave zero points) and enforce conditioning
+      through an outer-product factor
+           k_t(t*,X_t) k_t(t*,X_t)ᵀ
+      inside the element-wise L matrix, exactly as required by Eq. (40)
+      of Additive Gaussian Processes Revisited.
+
+    Parameters
+    ----------
+    model : gpflow.models.BayesianModel
+    delta, mu : float
+        Hyper-parameters of the Gaussian input measure p(X).
+    time_point : float or None
+        If given, compute indices at t = `time_point`.
+    time_dim : int or None
+        Column index of the time variable (required if `time_point` set).
+    _user_active_dims : list[list[int]], optional
+        Manual override of kernel active dims.
+    share_var_across_orders : bool, default True
+        Single variance parameter per interaction order if True.
+
+    Returns
+    -------
+    selected_dims : list[list[int]]
+        Active dims for each (non-constant) OAK component.
+    sobol_vals : list[float]
+        Unnormalised numerators.  Use `sobol_normalise` for indices.
     """
-    Compute Sobol indices for the OAK model, optionally conditioned on a fixed time.
-    :param model:    a trained gpflow BayesianModel using OAKKernel
-    :param delta:    prior variance of input measure p(X)
-    :param mu:       prior mean of input measure p(X)
-    :param time_point: if provided, fix the time dimension to this value for Sobol at that time
-    :param time_dim:   index of the time column in the input X
-    :param _user_active_dims: custom active dims override
-    :param share_var_across_orders: if True, use shared variance for interaction orders
-    :return: a tuple of (selected input dimension lists, sobol index values)
-    """
-    # Prepare data and kernel list
+    # ── 1.  Kernel structure (skip constant term) ────────────────────────
     num_dims = model.data[0].shape[1]
-    selected_dims_oak, kernel_list = get_list_representation(
+    sel, components = get_list_representation(
         model.kernel, num_dims=num_dims, _user_active_dims=_user_active_dims
     )
-    selected_dims_oak = selected_dims_oak[1:]  # skip constant offset term
-    # Choose data matrix: inducing points for sparse, or full data for full GP
-    if isinstance(model, (gpflow.models.SGPR, gpflow.models.SVGP)):
-        X = model.inducing_variable.Z.numpy()
-    else:
-        X = model.data[0].numpy()
-    N = X.shape[0]
-    # Compute alpha statistics once
-    alpha = get_model_sufficient_statistics(model, get_L=False)
+    sel, components = sel[1:], components[1:]      # drop constant part
 
-    sobol = []
-    # Loop over each kernel component
-    for kernel in kernel_list:
-        # skip constant term
-        if len(kernel.iComponent_list) == 0:
-            continue
-        # initialize L-matrix for this component
-        L = np.ones((N, N))
-        n_order = len(kernel.kernels)
-        for j, subkernel in enumerate(kernel.kernels):
+    # ── 2.  Inputs X and α statistics ────────────────────────────────────
+    is_sparse = isinstance(model, (gpflow.models.SGPR, gpflow.models.SVGP))
+    X_full = model.inducing_variable.Z.numpy() if is_sparse else model.data[0].numpy()
+    alpha_full = get_model_sufficient_statistics(model, get_L=False)  # shape (N,1)
+
+    if time_point is not None:
+        if time_dim is None:
+            raise ValueError("`time_dim` must be set when `time_point` is provided.")
+
+        if is_sparse:
+            # keep whole inducing set
+            X, alpha = X_full, alpha_full
+        else:
+            mask = np.isclose(X_full[:, time_dim], time_point, atol=1e-9, rtol=1e-6)
+            if not np.any(mask):
+                raise ValueError(
+                    f"No training row matches time_dim={time_dim} ≈ {time_point}."
+                )
+            X, alpha = X_full[mask], alpha_full[mask]
+    else:
+        X, alpha = X_full, alpha_full
+
+    N = X.shape[0]
+    sobol_vals: List[float] = []
+
+    # ── 3.  Component loop ───────────────────────────────────────────────
+    for comp in components:
+        L_np = np.ones((N, N))
+        n_order = len(comp.kernels)
+
+        for j, subk in enumerate(comp.kernels):
             # variance multiplier
-            if share_var_across_orders:
-                v = kernel.oak_kernel.variances[n_order].numpy() if j < 1 else 1.0
+            if share_var_across_orders and j == 0:
+                v = comp.oak_kernel.variances[n_order].numpy()
             else:
-                v = subkernel.base_kernel.variance.numpy()
-            # detect active dimension
-            dim = subkernel.active_dims[0]
-            # if this is the time dimension and conditioning on time,
-            # simply use k(t_j, t_j)=variance v
-            if time_point is not None and time_dim is not None and dim == time_dim:
-                L *= v
+                v = subk.base_kernel.variance.numpy()
+
+            dim = subk.active_dims[0]
+
+            # ── Time dimension factor (outer product) ──────────────────
+            if time_point is not None and dim == time_dim:
+                # k(t*,X_time) shape (N,)
+                k_vec = subk(
+                    tf.fill([N, 1], tf.cast(time_point, X.dtype)),
+                    tf.reshape(X[:, dim], (-1, 1)),
+                ).numpy().flatten()
+                L_np *= np.outer(k_vec, k_vec)
                 continue
-            # RBF continuous kernel case
-            if isinstance(subkernel, OrthogonalRBFKernel):
-                # standard RBF with analytical integrals
+
+            # ── Continuous RBF kernel ──────────────────────────────────
+            if isinstance(subk, OrthogonalRBFKernel):
                 if (
-                    isinstance(subkernel.base_kernel, gpflow.kernels.RBF)
-                    and not isinstance(subkernel.measure, EmpiricalMeasure)
-                    and not isinstance(subkernel.measure, MOGMeasure)
+                    isinstance(subk.base_kernel, gpflow.kernels.RBF)
+                    and not isinstance(subk.measure, (EmpiricalMeasure, MOGMeasure))
                 ):
-                    l = subkernel.base_kernel.lengthscales.numpy()
-                    L *= compute_L(X, l, v, dim, delta, mu)
-                # empirical measure case
-                elif isinstance(subkernel.measure, EmpiricalMeasure):
-                    L *= (
+                    l = subk.base_kernel.lengthscales.numpy()
+                    L_np *= compute_L(X, l, v, dim, delta, mu)
+                elif isinstance(subk.measure, EmpiricalMeasure):
+                    L_np *= (
                         v**2
                         * compute_L_empirical_measure(
-                            subkernel.measure.location,
-                            subkernel.measure.weights,
-                            subkernel,
+                            subk.measure.location,
+                            subk.measure.weights,
+                            subk,
                             tf.reshape(X[:, dim], [-1, 1]),
                         ).numpy()
                     )
                 else:
                     raise NotImplementedError("Unsupported measure for RBF")
-            # binary kernel case
-            elif isinstance(subkernel, OrthogonalBinary):
-                p0 = subkernel.p0
-                L *= compute_L_binary_kernel(X, p0, v, dim)
-            # categorical kernel case
-            elif isinstance(subkernel, OrthogonalCategorical):
-                p = subkernel.p
-                W = subkernel.W.numpy()
-                kappa = subkernel.kappa.numpy()
-                L *= compute_L_categorical_kernel(X, W, kappa, p, v, dim)
+
+            # ── Binary kernel ───────────────────────────────────────────
+            elif isinstance(subk, OrthogonalBinary):
+                L_np *= compute_L_binary_kernel(X, subk.p0, v, dim)
+
+            # ── Categorical kernel ─────────────────────────────────────
+            elif isinstance(subk, OrthogonalCategorical):
+                L_np *= compute_L_categorical_kernel(
+                    X,
+                    subk.W.numpy(),
+                    subk.kappa.numpy(),
+                    subk.p,
+                    v,
+                    dim,
+                )
             else:
-                raise NotImplementedError(f"Unsupported kernel type: {type(subkernel)}")
-        # compute Sobol numerator via trace(alpha^T L alpha)
-        mean_term = (
-            tf.tensordot(
-                tf.tensordot(tf.transpose(alpha), L, axes=1),
-                alpha,
-                axes=1,
-            )
-            .numpy()[0][0]
-        )
-        sobol.append(mean_term)
-    # ensure dims align with sobol
-    assert len(selected_dims_oak) == len(sobol)
-    return selected_dims_oak, sobol
+                raise NotImplementedError(f"Unsupported kernel: {type(subk)}")
+
+        # ── 4.  αᵀ L α  (single matmul) ─────────────────────────────────
+        L_tf = tf.convert_to_tensor(L_np, dtype=alpha.dtype)
+        alpha_tf = tf.reshape(alpha, [-1, 1])          # (N,1)
+        num = tf.squeeze(tf.matmul(alpha_tf, tf.matmul(L_tf, alpha_tf),
+                                   transpose_a=True)).numpy()
+        # guard against NaN / slight negatives
+        sobol_vals.append(0.0 if np.isnan(num) else max(0.0, num))
+
+    if len(sel) != len(sobol_vals):
+        raise RuntimeError("Mismatch between kernel components and numerators.")
+
+    print("OHO", sobol_vals)
+    return sel, sobol_vals

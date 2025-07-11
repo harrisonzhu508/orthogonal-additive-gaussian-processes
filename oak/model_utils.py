@@ -790,6 +790,7 @@ class oak_model:
         :param covariate_names: list of feature names in the same order as X’s columns
         :param likelihood_variance: whether to include the likelihood noise in normalization
         """
+        print("Computing Sobol indices summary table")
         # run or re‐run Sobol
         sobols = self.get_sobol(likelihood_variance=likelihood_variance, time_point=time_point, time_dim=time_dim)
         tuples = self.tuple_of_indices  # e.g. [(0,), (1,), (0,1), ...]

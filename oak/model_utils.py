@@ -104,6 +104,7 @@ def create_model_oak(
     share_var_across_orders: bool = True,
     base_kernels: Optional[List[Type[gpflow.kernels.Kernel]]] = None,
     active_dims: Optional[List[List[int]]] = None,
+    noise_kernel: Optional[gpflow.kernels.Kernel] = None,
 ) -> GPModel:
     """
     Build an OAK GP model.  `base_kernels` and `active_dims` are now
@@ -111,6 +112,9 @@ def create_model_oak(
     """
     X, Y = data
     num_dims = X.shape[1]
+
+    if noise_kernel is not None:
+        assert active_dims, "If noise_kernel is set, active_dims must be specified."
 
     # ------------------------------------------------------------------
     # 0) active-dims: default = one block per raw dim
@@ -152,6 +156,7 @@ def create_model_oak(
         base_kernels        = base_kernels,
         num_dims            = num_dims,
         max_interaction_depth = max_interaction_depth,
+        noise_kernel        = noise_kernel,
         active_dims         = active_dims,
         constrain_orthogonal= constrain_orthogonal,
         p0                  = p0,
@@ -239,6 +244,7 @@ class oak_model:
         share_var_across_orders: bool = True,
         base_kernels: Optional[List[Type[gpflow.kernels.Kernel]]] = None,
         active_dims:    Optional[List[List[int]]]            = None,
+        noise_kernel: Optional[gpflow.kernels.Kernel] = None,
     ):
         """
         :param max_interaction_depth: maximum number of interaction terms to consider
@@ -281,6 +287,7 @@ class oak_model:
         self.share_var_across_orders = share_var_across_orders
         self._user_base_kernels = base_kernels
         self._user_active_dims   = active_dims
+        self.noise_kernel = noise_kernel
 
     def fit(
         self,
@@ -337,6 +344,9 @@ class oak_model:
                 )
 
         # Prepare scaling / normalising flows across blocks
+        if self.noise_kernel is not None:
+            assert self._user_active_dims, "If noise_kernel is set, active_dims must be specified."
+
         blocks = self._user_active_dims or [[i] for i in range(self.num_dims)]
         self.input_flows = [None] * len(blocks)
         for i, blk in enumerate(blocks):
@@ -438,6 +448,7 @@ class oak_model:
             share_var_across_orders=self.share_var_across_orders,
             base_kernels=self._user_base_kernels,
             active_dims=self._user_active_dims,
+            noise_kernel=self.noise_kernel,
         )
 
     def optimise(
@@ -558,7 +569,9 @@ class oak_model:
         :param likelihood_variance: whether to include likelihood noise in Sobol calculation
         :return: normalised Sobol indices for each additive term in the model
         """
-        num_dims = self.num_dims
+        if self.noise_kernel is not None:
+            assert self._user_active_dims, "If noise_kernel is set, active_dims must be specified."
+        num_dims = sum(len(d) for d in self._user_active_dims) if self._user_active_dims else self.num_dims
 
         delta = 1
         mu = 0
@@ -566,6 +579,7 @@ class oak_model:
         tuple_of_indices = selected_dims[1:]
         if time_point is not None:
             time_point = self.input_flows[time_dim].bijector([time_point])
+        
         model_indices, sobols = compute_sobol_oak(
             self.m,
             delta,
@@ -575,12 +589,22 @@ class oak_model:
             self._user_active_dims,
             share_var_across_orders=self.share_var_across_orders,
         )
+        total_var = np.sum(sobols)
+        print(f"Total variance excluding likelihood variance: {total_var:.3f}")
         if likelihood_variance:
-            normalised_sobols = sobols / (
-                np.sum(sobols) + self.m.likelihood.variance.numpy()
-            )
-        else:
-            normalised_sobols = sobols / np.sum(sobols)
+            print(f"Likelihood variance: {self.m.likelihood.variance.numpy():.3f}")
+            total_var += self.m.likelihood.variance.numpy()
+            if self.noise_kernel:
+                # get V_lambda as a NumPy array
+                V_lambda = self.noise_kernel.V_lambda().numpy()    # shape [n,n]
+                sigma2   = float(self.noise_kernel.variance.numpy()) 
+                n = V_lambda.shape[0]  # number of inducing points
+                # variance contributed by the phylo component
+                phylo_var = sigma2 * np.trace(V_lambda) / n
+                total_var += phylo_var
+                print(f"Phylovariance contribution: {phylo_var:.3f}")
+
+        normalised_sobols = sobols / total_var
         self.normalised_sobols = normalised_sobols
         self.tuple_of_indices = tuple_of_indices
         return normalised_sobols
@@ -621,6 +645,8 @@ class oak_model:
         # -------------------------------------------------------------------------
         # 1.  Map each dimension → the active-dims block it belongs to
         # -------------------------------------------------------------------------
+        if self.noise_kernel is not None:
+            assert self._user_active_dims, "If noise_kernel is set, active_dims must be specified."
         blocks = self._user_active_dims or [[i] for i in range(self.num_dims)]
         dim_to_block = {}
         for blk in blocks:
@@ -796,6 +822,7 @@ class oak_model:
         # run or re‐run Sobol
         sobols = self.get_sobol(likelihood_variance=likelihood_variance, time_point=time_point, time_dim=time_dim)
         tuples = self.tuple_of_indices  # e.g. [(0,), (1,), (0,1), ...]
+        print(sobols)
 
         def name_for(tup):
             # join the names of each index in the tuple
@@ -808,6 +835,43 @@ class oak_model:
             "sobol_index": sobols,
         })
         return df.sort_values("sobol_index", ascending=False).reset_index(drop=True)
+
+    def get_shapley(self, likelihood_variance: bool = False):
+        """
+        Analytic Shapley values for this OAK model (any order).
+
+        Parameters
+        ----------
+        likelihood_variance : bool, default False
+            If True, the model's observation noise is included in the
+            normalisation—exactly mirroring the flag in `get_sobol()`.
+
+        Returns
+        -------
+        phi : (D,) ndarray
+            Shapley value for each input dimension (sums to 1).
+        """
+        # 1) Get Sobol indices and the tuple-of-indices list that tells
+        #    which additive term each Sobol number belongs to
+        sobol = self.get_sobol(likelihood_variance=likelihood_variance)
+        tuples = self.tuple_of_indices        # created inside get_sobol()
+        D = self.num_dims
+
+        # 2) Allocate accumulator
+        phi = np.zeros(D, dtype=float)
+
+        # 3) For every additive component u  (e.g. (1,), (0,3), … )
+        #    split its Sobol mass equally among its |u| members
+        for S_u, u in zip(sobol, tuples):
+            order = len(u)              # |u|
+            share = S_u / order         # fair share for each member
+            for j in u:
+                phi[j] += share
+
+        # 4) Numerical guard: enforce exact sum‑to‑one property
+        phi /= phi.sum()
+
+        return phi
 
 def _calculate_features(
     X: tf.Tensor, categorical_feature: List[int], binary_feature: List[int]

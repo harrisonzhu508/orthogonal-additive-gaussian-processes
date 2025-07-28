@@ -61,6 +61,7 @@ class OAKKernel(gpflow.kernels.Kernel):
         base_kernels: List[Type[gpflow.kernels.Kernel]],
         num_dims: int,
         max_interaction_depth: int,
+        noise_kernel: Optional[gpflow.kernels.Kernel] = None,
         active_dims: Optional[List[List[int]]] = None,
         constrain_orthogonal: bool = False,
         p0: Optional[List[float]] = None,
@@ -87,6 +88,7 @@ class OAKKernel(gpflow.kernels.Kernel):
             base_kernels,
             max_interaction_depth,
         )
+        self.noise_kernel = noise_kernel
         self.share_var_across_orders = share_var_across_orders
         # p0 is a list of probability measures for binary kernels, set to None if it is not binary
         if p0 is None:
@@ -258,31 +260,39 @@ class OAKKernel(gpflow.kernels.Kernel):
             k(X, X2) for k in self.kernels
         ]  # note that active dims gets applied by each kernel
         additive_terms = self.compute_additive_terms(kernel_matrices)
+
         if self.share_var_across_orders:
-            return reduce(
+            res = reduce(
                 tf.add,
                 [sigma2 * k for sigma2, k in zip(self.variances, additive_terms)],
             )
         else:
             # add constant kernel
-            return reduce(
+            res = reduce(
                 tf.add, [self.variances[0] * additive_terms[0]] + additive_terms[1:]
             )
+
+            res = res + self.noise_kernel.K(X, X2)
+        return res
 
     def K_diag(self, X):
         kernel_slices = [k.slice(X)[0] for k in self.kernels]
         kernel_diags = [k.K_diag(k.slice(X)[0]) for k in self.kernels]
         additive_terms = self.compute_additive_terms(kernel_diags)
         if self.share_var_across_orders:
-            return reduce(
+            res = reduce(
                 tf.add,
                 [sigma2 * k for sigma2, k in zip(self.variances, additive_terms)],
             )
         else:
-            return reduce(
+            res = reduce(
                 tf.add, [self.variances[0] * additive_terms[0]] + additive_terms[1:]
             )
+        
+        if self.noise_kernel is not None:
+            res = res + self.noise_kernel.K_diag(X)
 
+        return res
 
 class KernelComponenent(gpflow.kernels.Kernel):
     def __init__(
@@ -323,7 +333,10 @@ class KernelComponenent(gpflow.kernels.Kernel):
             if self.share_var_across_orders
             else 1
         )
-        return var_n * tf.reduce_prod(mats, axis=0)
+        res = var_n * tf.reduce_prod(mats, axis=0)
+        if self.noise_kernel is not None:
+            res = res + self.oak_kernel.noise_kernel.K(X, X2)
+        return res
 
     def K_diag(self, X):
         # Constant term
@@ -340,7 +353,10 @@ class KernelComponenent(gpflow.kernels.Kernel):
             if self.share_var_across_orders
             else 1
         )
-        return var_n * tf.reduce_prod(diags, axis=0)
+        res = var_n * tf.reduce_prod(diags, axis=0)
+        if self.noise_kernel is not None:
+            res = res + self.oak_kernel.noise_kernel.K_diag(X)
+        return res
 
 def get_list_representation(
     kernel: OAKKernel,
@@ -383,5 +399,4 @@ def get_list_representation(
                 continue
             selected_dims.append(kcombo)
             kernel_list.append(KernelComponenent(kernel, kcombo, share_var_across_orders))
-
     return selected_dims, kernel_list

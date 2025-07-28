@@ -678,3 +678,138 @@ def plot_single_effect_categorical(
     if tikz_path is not None:
         tikzplotlib.save(tikz_path + f"{title}.tex")
     return fig_list
+
+
+
+
+def plot_second_order_2dkernel(
+    m: Union[gpflow.models.GPR, gpflow.models.SGPR, gpflow.models.SVGP],
+    i: int,
+    j: int,
+    covariate_names: Optional[List[str]] = None,
+    x_transforms: Optional[List[Callable[[np.ndarray], np.ndarray]]] = None,
+    y_transform: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+    title: str = "",
+    tikz_path: Optional[str] = None,
+    quantile_range: Optional[List[List]] = [[2, 98], [2, 98]],
+    log_axis: Optional[List[bool]] = [False, False],
+    xx: Optional[np.ndarray] = None,
+    yy: Optional[np.ndarray] = None,
+    num_bin: int = 100,
+):
+    # ---- 1) Setup names and get alpha ----
+    if covariate_names is None:
+        covariate_names = [f"input {i}", f"input {j}"]
+
+    X, Y = m.data
+    if isinstance(m, gpflow.models.SVGP):
+        posterior = m.posterior()
+        alpha = posterior.alpha.numpy()
+    else:
+        alpha, _ = get_model_sufficient_statistics(m)
+        alpha = alpha.numpy()
+
+    Xi = X[:, i].numpy().flatten()
+    Xj = X[:, j].numpy().flatten()
+
+    # ---- 2) Decide where to evaluate the grid ----
+    if quantile_range[0] is not None:
+        xmin, xmax = np.percentile(Xi, quantile_range[0])
+    else:
+        xmin, xmax = Xi.min(), Xi.max()
+    if quantile_range[1] is not None:
+        ymin, ymax = np.percentile(Xj, quantile_range[1])
+    else:
+        ymin, ymax = Xj.min(), Xj.max()
+
+    xx_range = xx if xx is not None else np.linspace(xmin, xmax, 50)
+    yy_range = yy if yy is not None else np.linspace(ymin, ymax, 50)
+    xxg, yyg = np.meshgrid(xx_range, yy_range)
+    grid = np.vstack([xxg.ravel(), yyg.ravel()]).T  # shape [G,2]
+
+    # ---- 3) Figure out which kernel to use ----
+    # Look for a 2‐D kernel whose active_dims exactly matches {i,j}
+    two_d_kernel = None
+    for kern in m.kernel.kernels:
+        if hasattr(kern, "active_dims") and set(kern.active_dims) == {i, j}:
+            two_d_kernel = kern
+            break
+
+    # ---- 4) Build K_grid × Z ----
+    # We need the “inputs” in the full space of X_conditioned
+    if isinstance(m, gpflow.models.GPR):
+        Z = X
+    else:
+        Z = m.inducing_variable.Z
+
+    if two_d_kernel is not None:
+        # Build a full G×n grid with two‐dim kernel
+        Kgrid = two_d_kernel.K(
+            # need to pad grid back into full-dim X format,
+            # so insert dummy zeros for other dims
+            np.hstack([
+                np.zeros((grid.shape[0], X.shape[1] - 2)),  # dummy columns
+                grid  # but make sure the two cols align to i,j in ordering
+            ])[:, np.arange(X.shape[1])],  # reorder to match X dims
+            Z
+        )
+        # scale by the kernel’s variance if it has one
+        if hasattr(two_d_kernel, "variance"):
+            Kgrid = Kgrid * two_d_kernel.variance.numpy()
+    else:
+        # fallback: multiply two 1‐D kernels as before
+        Ki = m.kernel.kernels[i].K(
+            grid[:, :1], Z[:, i : i + 1]
+        ) * m.kernel.variances[i].numpy()
+        Kj = m.kernel.kernels[j].K(
+            grid[:, 1:2], Z[:, j : j + 1]
+        ) * m.kernel.variances[j].numpy()
+        Kgrid = Ki * Kj
+
+    # ---- 5) Compute the surface ----
+    mu = Kgrid.dot(alpha)  # shape [G,]
+
+    # ---- 6) Rescale back to original coords if needed ----
+    if x_transforms:
+        xxg = x_transforms[0](xxg)
+        Xi = x_transforms[0](Xi)
+        yyg = x_transforms[1](yyg)
+        Xj = x_transforms[1](Xj)
+    if y_transform:
+        mu = y_transform(mu)
+
+    # ---- 7) Plot ----
+    fig = plt.figure(figsize=(8, 4))
+    ax = fig.add_axes([0.2, 0.2, 0.75, 0.75])
+    cs = ax.contour(
+        xxg, yyg, mu.reshape(xxg.shape),
+        linewidths=1.2, colors="C0"
+    )
+    ax.clabel(cs, inline=1, fontsize=10)
+    ax.set_title(title)
+    ax.set_xlabel(covariate_names[0])
+    ax.set_ylabel(covariate_names[1])
+
+    # marginal histograms
+    ax_x = fig.add_axes([0.2, 0.05, 0.75, 0.15], sharex=ax)
+    ax_x.hist(Xi, bins=num_bin, color="gray", alpha=0.3)
+    ax_x.set_yticks([])
+
+    ax_y = fig.add_axes([0.05, 0.2, 0.15, 0.75], sharey=ax)
+    ax_y.hist(Xj, bins=num_bin, orientation="horizontal", color="gray", alpha=0.3)
+    ax_y.set_xticks([])
+
+    ax.set_xlim(xxg.min(), xxg.max())
+    ax.set_ylim(yyg.min(), yyg.max())
+
+    # optional log‐scales
+    if log_axis[0]:
+        ax.set_xscale("log")
+    if log_axis[1]:
+        ax.set_yscale("log")
+
+    if tikz_path:
+        import tikzplotlib
+        tikzplotlib.save(f"{tikz_path}/{title}.tex")
+
+    return FigureDescription(fig=fig, description=title)

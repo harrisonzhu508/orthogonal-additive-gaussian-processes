@@ -64,6 +64,43 @@ def save_model(
     os.makedirs(filename.parents[0], exist_ok=True)
     np.savez(filename, hyperparams=hyperparams)
 
+def concurvity_penalty_from_model(model, lam=1e-2, eps=1e-8, basis="auto"):
+    """
+    lam: strength of the concurvity regularizer
+    basis: "auto" -> training X for GPR, inducing Z for SGPR; or pass a tensor explicitly
+    """
+    # Pick the basis points on which to measure overlap
+    if basis == "auto":
+        if hasattr(model, "inducing_variable") and model.inducing_variable is not None:
+            B = model.inducing_variable.Z  # SGPR / sparse case
+        else:
+            B = model.data[0]              # GPR case
+    else:
+        B = basis  # a tensor you provide
+
+    # Build per-block Gram matrices on the basis
+    # Each base block kernel in your OAK kernel should apply its own active_dims internally
+    K_blocks = [k.K(k.slice(B)[0]) for k in model.kernel.kernels]   # list of [n,n] or [m,m]
+
+    # Frobenius-cosine squared between all pairs (j<l)
+    norms = [tf.sqrt(tf.reduce_sum(tf.square(Kj))) + eps for Kj in K_blocks]
+    reg = 0.0
+    for j in range(len(K_blocks)):
+        for l in range(j):
+            cos = tf.reduce_sum(K_blocks[j] * K_blocks[l]) / (norms[j] * norms[l])
+            reg += tf.square(cos)
+    return lam * reg
+
+def make_regularized_closure(model, lam_concurvity=1e-2):
+    base_closure = model.training_loss_closure()  # GPflow's built-in loss (MLL + priors)
+
+    @tf.function  # optional; keeps it fast and differentiable
+    def _closure():
+        loss = base_closure()
+        if lam_concurvity and lam_concurvity > 0.0:
+            loss += concurvity_penalty_from_model(model, lam=lam_concurvity, basis="auto")
+        return loss
+    return _closure
 
 def load_model(
     model: GPModel,
@@ -105,6 +142,7 @@ def create_model_oak(
     base_kernels: Optional[List[Type[gpflow.kernels.Kernel]]] = None,
     active_dims: Optional[List[List[int]]] = None,
     noise_kernel: Optional[gpflow.kernels.Kernel] = None,
+    lam_concurvity: float = 0.0,
 ) -> GPModel:
     """
     Build an OAK GP model.  `base_kernels` and `active_dims` are now
@@ -191,8 +229,14 @@ def create_model_oak(
 
     if optimise:
         t_start = time.time()
+        # gpflow.optimizers.Scipy().minimize(
+        #     model.training_loss_closure(),
+        #     model.trainable_variables,
+        #     method="BFGS",
+        # )
+        loss_closure = make_regularized_closure(model, lam_concurvity=lam_concurvity)
         gpflow.optimizers.Scipy().minimize(
-            model.training_loss_closure(),
+            loss_closure,
             model.trainable_variables,
             method="BFGS",
         )
@@ -245,6 +289,7 @@ class oak_model:
         base_kernels: Optional[List[Type[gpflow.kernels.Kernel]]] = None,
         active_dims:    Optional[List[List[int]]]            = None,
         noise_kernel: Optional[gpflow.kernels.Kernel] = None,
+        lam_concurvity: float = 0.0,
     ):
         """
         :param max_interaction_depth: maximum number of interaction terms to consider
@@ -288,6 +333,7 @@ class oak_model:
         self._user_base_kernels = base_kernels
         self._user_active_dims   = active_dims
         self.noise_kernel = noise_kernel
+        self.lam_concurvity = lam_concurvity
 
     def fit(
         self,
@@ -449,6 +495,7 @@ class oak_model:
             base_kernels=self._user_base_kernels,
             active_dims=self._user_active_dims,
             noise_kernel=self.noise_kernel,
+            lam_concurvity=self.lam_concurvity,
         )
 
     def optimise(

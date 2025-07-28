@@ -602,6 +602,7 @@ def compute_sobol_oak(
     time_dim:   Optional[int]   = None,     # column index of time
     _user_active_dims: Optional[List[List[int]]] = None,
     share_var_across_orders: bool = True,
+    use_noise_kernel = False
 ) -> Tuple[List[List[int]], List[float]]:
     """
     Sobol numerators αᵀ L α for an OAK GP, optionally at a fixed time t*.
@@ -621,7 +622,7 @@ def compute_sobol_oak(
     which realises the conditional variance definition.
     """
     # 1.  kernel structure (skip constant term) -------------------------
-    num_dims = model.data[0].shape[1]
+    num_dims = sum(len(d) for d in _user_active_dims) if _user_active_dims else model.data[0].shape[1]
     sel, components = get_list_representation(
         model.kernel, num_dims=num_dims, _user_active_dims=_user_active_dims
     )

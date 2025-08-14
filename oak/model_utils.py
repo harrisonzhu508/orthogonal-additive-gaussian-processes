@@ -186,7 +186,6 @@ def create_model_oak(
                 f"base_kernels must have one entry per block "
                 f"(len(active_dims) = {num_blocks}), got {len(base_kernels)}"
             )
-
     # ------------------------------------------------------------------
     # 3) Instantiate OAKKernel
     # ------------------------------------------------------------------
@@ -227,6 +226,10 @@ def create_model_oak(
 
     model.likelihood.variance.assign(0.01)
 
+    for i, v in enumerate(model.trainable_variables):
+        print(i, type(v), getattr(v, "name", None))
+        if v is None or not isinstance(v, tf.Variable):
+            print("-> BAD ENTRY at index", i, v)
     if optimise:
         t_start = time.time()
         # gpflow.optimizers.Scipy().minimize(
@@ -508,8 +511,9 @@ class oak_model:
         self.alpha = None
         t_start = time.time()
         opt = gpflow.optimizers.Scipy()
+        loss_closure = make_regularized_closure(self.m, lam_concurvity=self.lam_concurvity)
         opt.minimize(
-            self.m.training_loss_closure(),
+            loss_closure,
             self.m.trainable_variables,
             method="BFGS",
             compile=compile,
@@ -638,8 +642,9 @@ class oak_model:
         )
         total_var = np.sum(sobols)
         print(f"Total variance excluding likelihood variance: {total_var:.3f}")
+        print(f"Likelihood variance: {self.m.likelihood.variance.numpy():.3f}")
+
         if likelihood_variance:
-            print(f"Likelihood variance: {self.m.likelihood.variance.numpy():.3f}")
             total_var += self.m.likelihood.variance.numpy()
             if self.noise_kernel:
                 # get V_lambda as a NumPy array

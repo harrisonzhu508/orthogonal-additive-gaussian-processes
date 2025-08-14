@@ -271,7 +271,7 @@ class OAKKernel(gpflow.kernels.Kernel):
             res = reduce(
                 tf.add, [self.variances[0] * additive_terms[0]] + additive_terms[1:]
             )
-
+        if self.noise_kernel:
             res = res + self.noise_kernel.K(X, X2)
         return res
 
@@ -289,7 +289,7 @@ class OAKKernel(gpflow.kernels.Kernel):
                 tf.add, [self.variances[0] * additive_terms[0]] + additive_terms[1:]
             )
         
-        if self.noise_kernel is not None:
+        if self.noise_kernel:
             res = res + self.noise_kernel.K_diag(X)
 
         return res

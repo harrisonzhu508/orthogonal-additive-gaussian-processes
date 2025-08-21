@@ -20,6 +20,7 @@ from tensorflow_probability import distributions as tfd
 from oak import plotting_utils
 from oak.input_measures import MOGMeasure
 from oak.normalising_flow import Normalizer, Normalizer2D, NormalizerGeneralized
+from oak.copula_flow import NormalizerGeneralizedCopula
 from oak.oak_kernel import OAKKernel, get_list_representation
 from oak.plotting_utils import FigureDescription, save_fig_list
 from oak.utils import compute_sobol_oak, initialize_kmeans_with_categorical
@@ -293,6 +294,7 @@ class oak_model:
         active_dims:    Optional[List[List[int]]]            = None,
         noise_kernel: Optional[gpflow.kernels.Kernel] = None,
         lam_concurvity: float = 0.0,
+        use_copula_blks: Optional[bool] = False,
     ):
         """
         :param max_interaction_depth: maximum number of interaction terms to consider
@@ -337,6 +339,7 @@ class oak_model:
         self._user_active_dims   = active_dims
         self.noise_kernel = noise_kernel
         self.lam_concurvity = lam_concurvity
+        self.use_copula_blks = use_copula_blks
 
     def fit(
         self,
@@ -412,8 +415,10 @@ class oak_model:
                 if len(blk) == 1:
                     flow = Normalizer(X[:, blk[0]])
                 elif len(blk) > 1:
-                    # flow = Normalizer2D(X[:, blk])
-                    flow = NormalizerGeneralized(X[:, blk])
+                    if self.use_copula_blks[i]:
+                        flow = NormalizerGeneralizedCopula(X[:, blk])
+                    else:
+                        flow = Normalizer2D(X[:, blk])
                 else:
                     print(len(blk)>1)
                     raise NotImplementedError(
@@ -615,7 +620,7 @@ class oak_model:
 
         return None
 
-    def get_sobol(self, likelihood_variance=False, time_point=None, time_dim=None):
+    def get_sobol(self, likelihood_variance=False, time_point=None, time_dim=None, return_variance=False):
         """
         :param likelihood_variance: whether to include likelihood noise in Sobol calculation
         :return: normalised Sobol indices for each additive term in the model
@@ -644,8 +649,10 @@ class oak_model:
         print(f"Total variance excluding likelihood variance: {total_var:.3f}")
         print(f"Likelihood variance: {self.m.likelihood.variance.numpy():.3f}")
 
+        variances = {}
         if likelihood_variance:
             total_var += self.m.likelihood.variance.numpy()
+            variances["normalized_likelihood_variance"] = float(self.m.likelihood.variance.numpy()) / total_var
             if self.noise_kernel:
                 # get V_lambda as a NumPy array
                 V_lambda = self.noise_kernel.V_lambda().numpy()    # shape [n,n]
@@ -655,11 +662,15 @@ class oak_model:
                 phylo_var = sigma2 * np.trace(V_lambda) / n
                 total_var += phylo_var
                 print(f"Phylovariance contribution: {phylo_var:.3f}")
+                variances["normalized_phylo_variance"] = phylo_var / total_var
 
         normalised_sobols = sobols / total_var
         self.normalised_sobols = normalised_sobols
         self.tuple_of_indices = tuple_of_indices
-        return normalised_sobols
+        if return_variance:
+            return normalised_sobols, variances
+        else:
+            return normalised_sobols
 
     def plot(
         self,
@@ -860,7 +871,8 @@ class oak_model:
         covariate_names: List[str],
         time_point: Optional[float] = None,
         time_dim: Optional[int] = None,
-        likelihood_variance: bool = False
+        likelihood_variance: bool = False,
+        return_variance: bool = False
     ) -> pd.DataFrame:
         """
         Compute normalized Sobol indices and return as a DataFrame
@@ -872,7 +884,10 @@ class oak_model:
         """
         print("Computing Sobol indices summary table")
         # run or re‐run Sobol
-        sobols = self.get_sobol(likelihood_variance=likelihood_variance, time_point=time_point, time_dim=time_dim)
+        if return_variance:
+            sobols, variances = self.get_sobol(likelihood_variance=likelihood_variance, time_point=time_point, time_dim=time_dim, return_variance=return_variance)
+        else:
+            sobols = self.get_sobol(likelihood_variance=likelihood_variance, time_point=time_point, time_dim=time_dim)
         tuples = self.tuple_of_indices  # e.g. [(0,), (1,), (0,1), ...]
         print(sobols)
 
@@ -886,6 +901,14 @@ class oak_model:
             "interaction": names,
             "sobol_index": sobols,
         })
+        if return_variance:
+            # add variances to the DataFrame
+            # variances is a dictionary, add as rows
+            for key in variances.keys():
+                df = df.append({
+                    "interaction": key,
+                    "sobol_index": variances[key],
+                }, ignore_index=True)
         return df.sort_values("sobol_index", ascending=False).reset_index(drop=True)
 
     def get_shapley(self, likelihood_variance: bool = False):

@@ -108,16 +108,17 @@ class Normalizer(gpflow.base.Module):
 # Normaliser 2-D — minimal extension of the 1-D upstream code -----------------
 # -----------------------------------------------------------------------------
 class Normalizer2D(gpflow.base.Module):
-    """2‑D extension of Amazon OAK *Normalizer* **with optional decorrelation**.
+    """2‑D extension of the OAK Normalizer with **optional decorrelation**.
 
-    * By default (`decorrelate=False`) it behaves exactly like the upstream
-      1‑D normaliser applied independently to x₁ and x₂.
-    * With `decorrelate=True` it appends an **affine whitening bijector** based
-      on the sample mean and Cholesky of the marginal covariance computed *after*
-      the two 1‑D flows.  This makes the output approximately 𝒩(0, I).
+    * If `decorrelate=False` (default), behaves like two independent 1‑D normalisers.
+    * If `decorrelate=True`, appends an **affine whitening** (centre + TriL^{-1})
+      computed on the output of the two 1‑D flows, making the result ~ N(0, I).
+
+    ⚠️ Enabling `decorrelate=True` mixes x₁ and x₂ (loses one-to-one identifiability
+       per coordinate). Leave it False if you need z₁ ↔ x₁, z₂ ↔ x₂.
     """
 
-    def __init__(self, x, log=(True, True), decorrelate: bool = True,
+    def __init__(self, x, log=(False, False), 
                  eps: float = SMALL, name="normalizer2d", **kwargs):
         super().__init__(name=name, **kwargs)
 
@@ -125,59 +126,47 @@ class Normalizer2D(gpflow.base.Module):
         assert x.ndim == 2 and x.shape[1] == 2, "Expected input shape (N, 2)."
         self.x = x
         self.eps = eps
-        self.decorrelate = decorrelate
+        assert len(log) == 2, "`log` must be a 2-tuple of booleans."
 
         # ------------------------------------------------------------------
-        # 1. Per‑dimension 1‑D flows (identical to upstream logic) ----------
+        # 1) Per‑dimension 1‑D flows (right-to-left chain)
+        #    forward (log=True): Shift(-offset) -> Log -> Standardise -> SinhArcsinh
+        #    forward (log=False): Standardise -> SinhArcsinh
         # ------------------------------------------------------------------
         bijectors = []
         for d in range(2):
             xd = x[:, d]
             if log[d]:
-                offset = np.min(xd) - 1.0 - eps  # ensure positive inside Log
+                offset = float(np.min(xd) - 1.0 - eps)  # ensure positivity for Log
                 chain = tfb.Chain([
-                    *_standardiser(np.log(xd - offset), eps),
-                    tfb.Log(),
-                    tfb.Shift(-offset),
                     tfb.SinhArcsinh(
                         skewness=gpflow.Parameter(0.0, dtype=DTYPE),
                         tailweight=gpflow.Parameter(1.0, transform=tfb.Exp(), dtype=DTYPE),
+                        name="sinh_arcsinh",
                     ),
+                    *_standardiser(np.log(xd - offset), eps),
+                    tfb.Log(name="log"),
+                    tfb.Shift(-offset, name="shift_pos"),
                 ], name=f"flow_dim{d}")
             else:
                 chain = tfb.Chain([
-                    *_standardiser(xd, eps),
                     tfb.SinhArcsinh(
                         skewness=gpflow.Parameter(0.0, dtype=DTYPE),
                         tailweight=gpflow.Parameter(1.0, transform=tfb.Exp(), dtype=DTYPE),
+                        name="sinh_arcsinh",
                     ),
+                    *_standardiser(xd, eps),
                 ], name=f"flow_dim{d}")
             bijectors.append(chain)
 
         block = tfb.Blockwise(bijectors, block_sizes=[1, 1], name="per_dim_block")
-        self._block = block  # keep around for debugging / access
+        pieces = [block]
 
-        # ------------------------------------------------------------------
-        # 2. Optional decorrelation (fixed affine) -------------------------
-        # ------------------------------------------------------------------
-        if decorrelate:
-            z0 = block.forward(x).numpy()
-            mean = z0.mean(axis=0)
-            cov = np.cov(z0.T) + eps * np.eye(2)
-            chol = np.linalg.cholesky(cov)
-            chol_inv = np.linalg.inv(chol)
 
-            self._mean = mean  # for reference
-            self._chol_inv = chol_inv
-
-            centre = tfb.Shift(-mean, name="centre")
-            whiten = tfb.ScaleMatvecTriL(chol_inv, name="whiten")
-            self.bijector = tfb.Chain([whiten, centre, block], name="flow_2d_decor")
-        else:
-            self.bijector = block
+        self.bijector = tfb.Chain(pieces, name="normalizer2d_flow")
 
     # ------------------------------------------------------------------
-    # Public API (unchanged) -------------------------------------------
+    # Public API
     # ------------------------------------------------------------------
     def forward(self, z):
         return self.bijector.forward(tf.cast(z, DTYPE))
@@ -189,53 +178,56 @@ class Normalizer2D(gpflow.base.Module):
         return self.bijector.forward_log_det_jacobian(tf.cast(z, DTYPE), event_ndims=1)
 
     # ------------------------------------------------------------------
-    # Diagnostics -------------------------------------------------------
+    # Diagnostics
     # ------------------------------------------------------------------
     def KL_objective(self):
-        z = self.x.astype(np.float64)
+        z = tf.convert_to_tensor(self.x, dtype=DTYPE)
         y = self.forward(z)
         return 0.5 * tf.reduce_mean(tf.reduce_sum(tf.square(y), axis=-1)) \
-            - tf.reduce_mean(self.log_det_jacobian(z))
+             - tf.reduce_mean(self.log_det_jacobian(z))
 
     def kstest(self):
         y = self.forward(self.x).numpy()
-        test_results = []
+        out = []
         for d in range(2):
             s, p = stats.kstest(y[:, d], "norm")
-            test_results.append((s, p))
+            out.append((s, p))
             print(f"Dim {d}: KS stat = {s:.3f}, p = {p:.3g}")
-        return test_results
-        
+        return out
 
-    def plot(self, title='Normaliser 2D'):
-        f = plt.figure()
+    def plot(self, title='Normalizer 2D'):
+        f = plt.figure(figsize=(6, 6))
         ax = f.add_axes([0.3, 0.3, 0.65, 0.65])
         x = self.x
         y = self.forward(x).numpy()
-        ax.plot(x[:, 0], y[:, 0], "k.", label="Gaussian dim 1")
-        ax.plot(x[:, 1], y[:, 1], "r.", label="Gaussian dim 2")
-        ax.legend()
+        ax.plot(x[:, 0], y[:, 0], ".", label="dim 1")
+        ax.plot(x[:, 1], y[:, 1], ".", label="dim 2")
+        ax.legend(loc="best")
+        ax.set_xlabel("x")
+        ax.set_ylabel("Gaussianised y")
 
         ax_x = f.add_axes([0.3, 0.05, 0.65, 0.25], sharex=ax)
-        ax_x.hist(x[:, 0], bins=20)
-        ax_y = f.add_axes([0.05, 0.3, 0.25, 0.65], sharey=ax)
-        ax_y.hist(y[:, 0], bins=20, orientation="horizontal")
-        ax_y.set_xlim(ax_y.get_xlim()[::-1])
-        plt.title(title)
+        ax_x.hist(x[:, 0], bins=20, alpha=0.8)
+        ax_x.set_xlabel("x[:,0]")
 
+        ax_y = f.add_axes([0.05, 0.3, 0.25, 0.65], sharey=ax)
+        ax_y.hist(y[:, 0], bins=20, orientation="horizontal", alpha=0.8)
+        ax_y.set_ylabel("y[:,0]")
+        ax_y.set_xlim(ax_y.get_xlim()[::-1])
+        f.suptitle(title)
+        return f
 
 
 class NormalizerGeneralized(gpflow.base.Module):
     """
     D-dimensional extension of the Amazon OAK *Normalizer* with optional decorrelation.
 
-    * By default (`decorrelate=False`) it behaves like D independent 1D normalisers.
     * With `decorrelate=True`, it appends an affine whitening transformation
       based on the sample mean and Cholesky of the marginal covariance after
       the D independent flows. This makes the output approximately N(0, I).
     """
 
-    def __init__(self, x, log=None, decorrelate: bool = True,
+    def __init__(self, x, log=None, 
                  eps: float = SMALL, name="normalizer", **kwargs):
         super().__init__(name=name, **kwargs)
 
@@ -243,7 +235,6 @@ class NormalizerGeneralized(gpflow.base.Module):
         assert x.ndim == 2, "Expected input shape (N, D)."
         self.x = x
         self.eps = eps
-        self.decorrelate = decorrelate
 
         D = x.shape[1]
         if log is None:
@@ -280,24 +271,7 @@ class NormalizerGeneralized(gpflow.base.Module):
         block = tfb.Blockwise(bijectors, block_sizes=[1]*D, name="per_dim_block")
         self._block = block
 
-        # ------------------------------------------------------------------
-        # 2. Optional decorrelation (fixed affine)
-        # ------------------------------------------------------------------
-        if decorrelate:
-            z0 = block.forward(x).numpy()
-            mean = z0.mean(axis=0)
-            cov = np.cov(z0.T) + eps * np.eye(D)
-            chol = np.linalg.cholesky(cov)
-            chol_inv = np.linalg.inv(chol)
-
-            self._mean = mean
-            self._chol_inv = chol_inv
-
-            centre = tfb.Shift(-mean, name="centre")
-            whiten = tfb.ScaleMatvecTriL(chol_inv, name="whiten")
-            self.bijector = tfb.Chain([whiten, centre, block], name="flow_D_decor")
-        else:
-            self.bijector = block
+        self.bijector = block
 
     def forward(self, z):
         return self.bijector.forward(tf.cast(z, DTYPE))

@@ -143,6 +143,8 @@ def create_model_oak(
     base_kernels: Optional[List[Type[gpflow.kernels.Kernel]]] = None,
     active_dims: Optional[List[List[int]]] = None,
     noise_kernel: Optional[gpflow.kernels.Kernel] = None,
+    spatial_block_idx=None,
+    uniform_measure: Optional[bool] = None,
     lam_concurvity: float = 0.0,
 ) -> GPModel:
     """
@@ -204,6 +206,8 @@ def create_model_oak(
         empirical_weights   = empirical_weights,
         gmm_measures        = gmm_measures,
         share_var_across_orders = share_var_across_orders,
+        uniform_measure     = uniform_measure,
+        spatial_block_idx   = spatial_block_idx,
     )
 
     # ------------------------------------------------------------------
@@ -293,8 +297,10 @@ class oak_model:
         base_kernels: Optional[List[Type[gpflow.kernels.Kernel]]] = None,
         active_dims:    Optional[List[List[int]]]            = None,
         noise_kernel: Optional[gpflow.kernels.Kernel] = None,
+        spatial_block_idx=None,
+        uniform_measure: Optional[bool] = None,
         lam_concurvity: float = 0.0,
-        use_copula_blks: Optional[bool] = False,
+        use_copula_blks: Optional[bool] = None,
     ):
         """
         :param max_interaction_depth: maximum number of interaction terms to consider
@@ -340,6 +346,8 @@ class oak_model:
         self.noise_kernel = noise_kernel
         self.lam_concurvity = lam_concurvity
         self.use_copula_blks = use_copula_blks
+        self.uniform_measure = uniform_measure
+        self.spatial_block_idx = spatial_block_idx
 
     def fit(
         self,
@@ -372,7 +380,8 @@ class oak_model:
 
         # Validate empirical/GMM measures
         if self.empirical_measure is not None:
-            if not set(self.empirical_measure).issubset(self.continuous_index):
+            self.empirical_measure_list = [item for sublist in self.empirical_measure for item in sublist]
+            if not set(self.empirical_measure_list).issubset(self.continuous_index):
                 raise ValueError(
                     f"Empirical measure={self.empirical_measure} should only be used on non-binary/categorical inputs {self.continuous_index}"
                 )
@@ -405,20 +414,25 @@ class oak_model:
             # Only apply a joint flow if all dims are continuous and not empirical/GMM
             if not all(d in self.continuous_index for d in blk):
                 continue
-            if self.empirical_measure and any(d in self.empirical_measure for d in blk):
+            if self.empirical_measure and any(d in self.empirical_measure_list for d in blk):
                 continue
             if self.gmm_measure and any(self.gmm_measure[d] for d in blk):
                 continue
 
+            if self.uniform_measure is not None:
+                if self.uniform_measure[i]:
+                    # use uniform measure, no transform
+                    continue
+
             if self.use_normalising_flow:
-                print(f"Normalising flow for block {blk} with size {len(blk)}")
+                print(f"Normalising flow for block {blk} with size {len(blk)} and {blk}")
                 if len(blk) == 1:
                     flow = Normalizer(X[:, blk[0]])
                 elif len(blk) > 1:
                     if self.use_copula_blks[i]:
                         flow = NormalizerGeneralizedCopula(X[:, blk])
                     else:
-                        flow = Normalizer2D(X[:, blk])
+                        flow = NormalizerGeneralized(X[:, blk])
                 else:
                     print(len(blk)>1)
                     raise NotImplementedError(
@@ -435,7 +449,7 @@ class oak_model:
         # Empirical X-scaler
         if self.empirical_measure is not None:
             self.scaler_X_empirical = preprocessing.StandardScaler().fit(
-                X[:, self.empirical_measure]
+                X[:, self.empirical_measure_list]
             )
         # Standard scaler if no flows
         if not self.use_normalising_flow:
@@ -450,11 +464,14 @@ class oak_model:
 
         # Compute empirical locations/weights
         if self.empirical_measure is not None:
-            for ii in self.empirical_measure:
+            for blk, ii in enumerate(self.empirical_measure):
                 # extract ii from block
-                locs, counts = np.unique(self.X_scaled[:, ii], return_counts=True)
-                self.empirical_locations[ii] = locs.reshape(-1,1)
-                self.empirical_weights[ii] = (counts / counts.sum()).reshape(-1,1)
+                # account for ii being a list
+                locs, counts = np.unique(
+                    self.X_scaled[:, ii], axis=0, return_counts=True
+                )
+                self.empirical_locations[blk] = locs  # shape (M, d)
+                self.empirical_weights[blk] = (counts / counts.sum()).reshape(-1, 1)  # (M,1)
 
         # Sanity checks
         assert np.allclose(self.X_scaled[:, self.binary_index], X[:, self.binary_index])
@@ -465,8 +482,8 @@ class oak_model:
                 X[:, np.flatnonzero(self.gmm_measure)]
             )
         if self.empirical_measure is not None:
-            inv = [self._get_x_inverse_transformer(i)(self.X_scaled[:,i]) for i in self.empirical_measure]
-            assert np.allclose(np.stack(inv,axis=1), X[:, self.empirical_measure])
+            inv = [self._get_x_inverse_transformer(i)(self.X_scaled[:,i]) for i in self.empirical_measure_list]
+            assert np.allclose(np.stack(inv,axis=1), X[:, self.empirical_measure_list])
 
         # Inducing points
         Z = None
@@ -504,6 +521,8 @@ class oak_model:
             active_dims=self._user_active_dims,
             noise_kernel=self.noise_kernel,
             lam_concurvity=self.lam_concurvity,
+            uniform_measure=self.uniform_measure,
+            spatial_block_idx=self.spatial_block_idx,
         )
 
     def optimise(
@@ -538,6 +557,9 @@ class oak_model:
             X_scaled = self._transform_x(X)
         try:
             y_pred = self.m.predict_f(X_scaled)[0].numpy()
+            if np.any(np.isnan(y_pred)):
+                print(X_scaled)
+                print("Warning: NaN values found in y_pred.")
             return self.scaler_y.inverse_transform(y_pred)[:, 0]
         except ValueError:
             print("test X is outside the range of training input, try clipping X.")
@@ -566,8 +588,8 @@ class oak_model:
         """
         X = apply_normalise_flow(X, self._user_active_dims, self.input_flows)
         if self.empirical_measure is not None:
-            X[:, self.empirical_measure] = self.scaler_X_empirical.transform(
-                X[:, self.empirical_measure]
+            X[:, self.empirical_measure_list] = self.scaler_X_empirical.transform(
+                X[:, self.empirical_measure_list]
             )
         if not self.use_normalising_flow:
             X[:, self.continuous_index] = self.scaler_X_continuous.transform(
@@ -587,8 +609,8 @@ class oak_model:
         flow = self.input_flows[i]
 
         # empirical / GMM cases unchanged …
-        if self.empirical_measure and i in self.empirical_measure:
-            idx = self.empirical_measure.index(i)
+        if self.empirical_measure and i in self.empirical_measure_list:
+            idx = self.empirical_measure_list.index(i)
             mean_i, std_i = self.scaler_X_empirical.mean_[idx], np.sqrt(
                 self.scaler_X_empirical.var_[idx]
             )
@@ -631,7 +653,13 @@ class oak_model:
 
         delta = 1
         mu = 0
+
         selected_dims, _ = get_list_representation(self.m.kernel, num_dims=num_dims, _user_active_dims=self._user_active_dims)
+        if self.spatial_block_idx:
+            # remove spatial indices and apply get_list_rep on smaller set
+            # from selected_dims, remove lists containing index 1
+            selected_dims = [d for d in selected_dims if self.spatial_block_idx not in d]
+
         tuple_of_indices = selected_dims[1:]
         if time_point is not None:
             time_point = self.input_flows[time_dim].bijector([time_point])
@@ -644,15 +672,34 @@ class oak_model:
             time_dim,
             self._user_active_dims,
             share_var_across_orders=self.share_var_across_orders,
+            spatial_block_idx=self.spatial_block_idx,
         )
         total_var = np.sum(sobols)
-        print(f"Total variance excluding likelihood variance: {total_var:.3f}")
-        print(f"Likelihood variance: {self.m.likelihood.variance.numpy():.3f}")
-
         variances = {}
+        if self.spatial_block_idx:
+            # spatial sobol compute separately
+            from oak.utils import compute_L, get_model_sufficient_statistics
+            X_full     = self.m.data[0].numpy()
+            alpha_full = get_model_sufficient_statistics(self.m, get_L=False)     # (N,1)
+            X, alpha = X_full, alpha_full
+            l = self.m.kernel.spatial_kernel.base_kernel.lengthscales.numpy()
+            v = self.m.kernel.variances[0]
+            dims = self.m.kernel.spatial_kernel.active_dims
+            L_np = compute_L(X, l, v, dims, delta, mu)
+            L_tf     = tf.convert_to_tensor(L_np, dtype=alpha.dtype)
+            alpha_tf = tf.reshape(alpha, [-1, 1])
+            num = tf.squeeze(tf.matmul(alpha_tf, tf.matmul(L_tf, alpha_tf),
+                                    transpose_a=True)).numpy()
+            spatial_sobol = 0.0 if np.isnan(num) else max(0.0, num)
+            print(f"individual_spatial_sobol: {spatial_sobol:.3f}")
+            variances["individual_spatial_sobol"] = spatial_sobol
+            total_var += spatial_sobol
+
+
         if likelihood_variance:
             total_var += self.m.likelihood.variance.numpy()
-            variances["normalized_likelihood_variance"] = float(self.m.likelihood.variance.numpy()) / total_var
+            variances["normalized_likelihood_variance"] = float(self.m.likelihood.variance.numpy())
+            print(f"Likelihood variance: {self.m.likelihood.variance.numpy():.3f}")
             if self.noise_kernel:
                 # get V_lambda as a NumPy array
                 V_lambda = self.noise_kernel.V_lambda().numpy()    # shape [n,n]
@@ -662,8 +709,13 @@ class oak_model:
                 phylo_var = sigma2 * np.trace(V_lambda) / n
                 total_var += phylo_var
                 print(f"Phylovariance contribution: {phylo_var:.3f}")
-                variances["normalized_phylo_variance"] = phylo_var / total_var
+                variances["normalized_phylo_variance"] = phylo_var
 
+        if variances.keys() is not None:
+            for key in variances.keys():
+                variances[key] /= total_var
+        
+        print(f"Total variance excluding likelihood variance: {total_var:.3f}")
         normalised_sobols = sobols / total_var
         self.normalised_sobols = normalised_sobols
         self.tuple_of_indices = tuple_of_indices
@@ -671,6 +723,89 @@ class oak_model:
             return normalised_sobols, variances
         else:
             return normalised_sobols
+        
+    def sobol_summary(
+        self,
+        covariate_names: List[str],
+        time_point: Optional[float] = None,
+        time_dim: Optional[int] = None,
+        likelihood_variance: bool = False,
+        return_variance: bool = False
+    ) -> pd.DataFrame:
+        """
+        Compute normalized Sobol indices and return as a DataFrame
+        with one row per interaction (including single‐feature effects),
+        using real covariate names.
+        
+        :param covariate_names: list of feature names in the same order as X’s columns
+        :param likelihood_variance: whether to include the likelihood noise in normalization
+        """
+        print("Computing Sobol indices summary table")
+        # run or re‐run Sobol
+        if return_variance:
+            sobols, variances = self.get_sobol(likelihood_variance=likelihood_variance, time_point=time_point, time_dim=time_dim, return_variance=return_variance)
+        else:
+            sobols = self.get_sobol(likelihood_variance=likelihood_variance, time_point=time_point, time_dim=time_dim)
+        tuples = self.tuple_of_indices  # e.g. [(0,), (1,), (0,1), ...]
+        print(tuples, covariate_names)
+        print(sobols)
+
+        def name_for(tup):
+            # join the names of each index in the tuple
+            return " & ".join(covariate_names[i] for i in tup)
+
+        names = [name_for(t) for t in tuples]
+
+        df = pd.DataFrame({
+            "interaction": names,
+            "sobol_index": sobols,
+        })
+        if return_variance:
+            # add variances to the DataFrame
+            # variances is a dictionary, add as rows
+            for key in variances.keys():
+                df = df.append({
+                    "interaction": key,
+                    "sobol_index": variances[key],
+                }, ignore_index=True)
+        return df.sort_values("sobol_index", ascending=False).reset_index(drop=True)
+
+    def get_shapley(self, likelihood_variance: bool = False, return_variance: bool = False):
+        """
+        Analytic Shapley values for this OAK model (any order).
+
+        Parameters
+        ----------
+        likelihood_variance : bool, default False
+            If True, the model's observation noise is included in the
+            normalisation—exactly mirroring the flag in `get_sobol()`.
+
+        Returns
+        -------
+        phi : (D,) ndarray
+            Shapley value for each input dimension (sums to 1).
+        """
+        # 1) Get Sobol indices and the tuple-of-indices list that tells
+        #    which additive term each Sobol number belongs to
+        sobol = self.get_sobol(likelihood_variance=likelihood_variance, return_variance=return_variance)
+        tuples = self.tuple_of_indices        # created inside get_sobol()
+        D = len(self._user_active_dims)
+
+        # 2) Allocate accumulator
+        phi = np.zeros(D, dtype=float)
+
+        # 3) For every additive component u  (e.g. (1,), (0,3), … )
+        #    split its Sobol mass equally among its |u| members
+        for S_u, u in zip(sobol, tuples):
+            order = len(u)              # |u|
+            share = S_u / order         # fair share for each member
+            for j in u:
+                phi[j] += share
+
+        # 4) Numerical guard: enforce exact sum‑to‑one property
+        phi /= phi.sum()
+
+        return phi
 
     def plot(
         self,
@@ -722,11 +857,17 @@ class oak_model:
         sel, _ = get_list_representation(
             self.m.kernel,
             num_dims=self.num_dims,
-            _user_active_dims=self._user_active_dims
+            _user_active_dims=self._user_active_dims,
         )
+        if self.spatial_block_idx:
+            # remove spatial indices and apply get_list_rep on smaller set
+            # from selected_dims, remove lists containing index 1
+            sel = [d for d in sel if self.spatial_block_idx not in d]
+
         tuple_of_indices = sel[1:]  # drop constant term
         self.get_sobol(likelihood_variance)
         order = np.argsort(self.normalised_sobols)[::-1]
+        print(tuple_of_indices)
 
         # -------------------------------------------------------------------------
         # 3.  Build figure list
@@ -866,87 +1007,6 @@ class oak_model:
 
         return fig_list
 
-    def sobol_summary(
-        self,
-        covariate_names: List[str],
-        time_point: Optional[float] = None,
-        time_dim: Optional[int] = None,
-        likelihood_variance: bool = False,
-        return_variance: bool = False
-    ) -> pd.DataFrame:
-        """
-        Compute normalized Sobol indices and return as a DataFrame
-        with one row per interaction (including single‐feature effects),
-        using real covariate names.
-        
-        :param covariate_names: list of feature names in the same order as X’s columns
-        :param likelihood_variance: whether to include the likelihood noise in normalization
-        """
-        print("Computing Sobol indices summary table")
-        # run or re‐run Sobol
-        if return_variance:
-            sobols, variances = self.get_sobol(likelihood_variance=likelihood_variance, time_point=time_point, time_dim=time_dim, return_variance=return_variance)
-        else:
-            sobols = self.get_sobol(likelihood_variance=likelihood_variance, time_point=time_point, time_dim=time_dim)
-        tuples = self.tuple_of_indices  # e.g. [(0,), (1,), (0,1), ...]
-        print(sobols)
-
-        def name_for(tup):
-            # join the names of each index in the tuple
-            return " & ".join(covariate_names[i] for i in tup)
-
-        names = [name_for(t) for t in tuples]
-
-        df = pd.DataFrame({
-            "interaction": names,
-            "sobol_index": sobols,
-        })
-        if return_variance:
-            # add variances to the DataFrame
-            # variances is a dictionary, add as rows
-            for key in variances.keys():
-                df = df.append({
-                    "interaction": key,
-                    "sobol_index": variances[key],
-                }, ignore_index=True)
-        return df.sort_values("sobol_index", ascending=False).reset_index(drop=True)
-
-    def get_shapley(self, likelihood_variance: bool = False):
-        """
-        Analytic Shapley values for this OAK model (any order).
-
-        Parameters
-        ----------
-        likelihood_variance : bool, default False
-            If True, the model's observation noise is included in the
-            normalisation—exactly mirroring the flag in `get_sobol()`.
-
-        Returns
-        -------
-        phi : (D,) ndarray
-            Shapley value for each input dimension (sums to 1).
-        """
-        # 1) Get Sobol indices and the tuple-of-indices list that tells
-        #    which additive term each Sobol number belongs to
-        sobol = self.get_sobol(likelihood_variance=likelihood_variance)
-        tuples = self.tuple_of_indices        # created inside get_sobol()
-        D = self.num_dims
-
-        # 2) Allocate accumulator
-        phi = np.zeros(D, dtype=float)
-
-        # 3) For every additive component u  (e.g. (1,), (0,3), … )
-        #    split its Sobol mass equally among its |u| members
-        for S_u, u in zip(sobol, tuples):
-            order = len(u)              # |u|
-            share = S_u / order         # fair share for each member
-            for j in u:
-                phi[j] += share
-
-        # 4) Numerical guard: enforce exact sum‑to‑one property
-        phi /= phi.sum()
-
-        return phi
 
 def _calculate_features(
     X: tf.Tensor, categorical_feature: List[int], binary_feature: List[int]

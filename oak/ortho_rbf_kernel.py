@@ -45,37 +45,89 @@ class OrthogonalRBFKernel(gpflow.kernels.Kernel):
             raise NotImplementedError
 
         if isinstance(self.measure, UniformMeasure):
+            D = len(self.active_dims)
 
+            def _as_lenvec(l, D, dtype):
+                l = tf.convert_to_tensor(l, dtype=dtype)
+                if l.shape.rank == 0:  # scalar lengthscale -> broadcast to D
+                    l = tf.fill([D], l)
+                return l
+            
             def cov_X_s(X):
-                tf.debugging.assert_shapes([(X, ("N", 1))])
-                l = self.base_kernel.lengthscales
-                sigma2 = self.base_kernel.variance
-                return (
-                    sigma2
-                    * l
-                    / (self.measure.b - self.measure.a)
-                    * np.sqrt(np.pi / 2)
-                    * (
-                        tf.math.erf((self.measure.b - X) / np.sqrt(2) / l)
-                        - tf.math.erf((self.measure.a - X) / np.sqrt(2) / l)
+                tf.debugging.assert_shapes([(X, ("N", D))])
+                if D==1:
+                    l = self.base_kernel.lengthscales
+                    sigma2 = self.base_kernel.variance
+                    return (
+                        sigma2
+                        * l
+                        / (self.measure.b - self.measure.a)
+                        * np.sqrt(np.pi / 2)
+                        * (
+                            tf.math.erf((self.measure.b - X) / np.sqrt(2) / l)
+                            - tf.math.erf((self.measure.a - X) / np.sqrt(2) / l)
+                        )
                     )
-                )
+                else:
+                    X = tf.convert_to_tensor(X)
+                    tf.debugging.assert_rank_at_least(X, 2)     # (N, D)
+                    D = tf.shape(X)[-1]
+
+                    a = tf.convert_to_tensor(self.measure.a, dtype=X.dtype)   # (D,)
+                    b = tf.convert_to_tensor(self.measure.b, dtype=X.dtype)   # (D,)
+                    l = _as_lenvec(self.base_kernel.lengthscales, D, X.dtype) # (D,)
+                    sigma2 = tf.cast(self.base_kernel.variance, X.dtype)
+
+                    tf.debugging.assert_shapes([
+                        (X, ("N", "D")), (a, ("D",)), (b, ("D",)), (l, ("D",)),
+                    ])
+
+                    # broadcast (N,D)
+                    aN = a[tf.newaxis, :]
+                    bN = b[tf.newaxis, :]
+                    lN = l[tf.newaxis, :]
+
+                    sqrt_pi_over_2 = tf.sqrt(tf.constant(np.pi, dtype=X.dtype) / 2.0)
+                    inv_sqrt2 = 1.0 / tf.sqrt(tf.constant(2.0, dtype=X.dtype))
+
+                    up   = (bN - X) * inv_sqrt2 / lN
+                    down = (aN - X) * inv_sqrt2 / lN
+
+                    term = (lN / (bN - aN)) * sqrt_pi_over_2 * (tf.math.erf(up) - tf.math.erf(down))  # (N,D)
+                    prod = tf.reduce_prod(term, axis=1, keepdims=True)  # (N,1)
+                    return sigma2 * prod                                 # (N,1)
 
             def var_s():
-                l = self.base_kernel.lengthscales
-                sigma2 = self.base_kernel.variance
-                y = (self.measure.b - self.measure.a) / np.sqrt(2) / l
-                return (
-                    2.0
-                    / ((self.measure.b - self.measure.a) ** 2)
-                    * sigma2
-                    * l ** 2
-                    * (
-                        np.sqrt(np.pi) * y * tf.math.erf(y)
-                        + tf.exp(-tf.square(y))
-                        - 1.0
+                if D==1:
+                    l = self.base_kernel.lengthscales
+                    sigma2 = self.base_kernel.variance
+                    y = (self.measure.b - self.measure.a) / np.sqrt(2) / l
+                    return (
+                        2.0
+                        / ((self.measure.b - self.measure.a) ** 2)
+                        * sigma2
+                        * l ** 2
+                        * (
+                            np.sqrt(np.pi) * y * tf.math.erf(y)
+                            + tf.exp(-tf.square(y))
+                            - 1.0
+                        )
                     )
-                )
+                else:
+                    # E[k(S,S')] for S,S' ~ Uniform([a,b]) with independence across dims
+                    a = tf.convert_to_tensor(self.measure.a, dtype=tf.float64)
+                    b = tf.convert_to_tensor(self.measure.b, dtype=tf.float64)
+                    l = _as_lenvec(self.base_kernel.lengthscales, tf.shape(a)[0], a.dtype)
+                    sigma2 = tf.cast(self.base_kernel.variance, a.dtype)
+
+                    Δ = (b - a)                                 # (D,)
+                    y = Δ / (tf.sqrt(2.0) * l)                  # (D,)
+                    sqrt_pi = tf.sqrt(tf.constant(np.pi, dtype=a.dtype))
+
+                    # 1D factor: 2/Δ^2 * l^2 * (√π y erf(y) + exp(-y^2) - 1)
+                    factor_1d = (2.0 / (Δ * Δ)) * (l * l) * (sqrt_pi * y * tf.math.erf(y) + tf.exp(-y * y) - 1.0)  # (D,)
+
+                    return sigma2 * tf.reduce_prod(factor_1d)   # scalar
 
         if isinstance(self.measure, GaussianMeasure):
 
@@ -139,6 +191,7 @@ class OrthogonalRBFKernel(gpflow.kernels.Kernel):
                     return sigma2 * tf.pow(l2 / denom2, D / 2)
                 
         if isinstance(self.measure, EmpiricalMeasure):
+            D = len(self.active_dims)
 
             print(f"OrthogonalRBFKernel: EmpiricalMeasure with {len(self.measure.location)} points")
 
@@ -146,14 +199,14 @@ class OrthogonalRBFKernel(gpflow.kernels.Kernel):
                 location = self.measure.location
                 weights = self.measure.weights
                 tf.debugging.assert_shapes(
-                    [(X, ("N", 1)), (location, ("M", 1)), (weights, ("M", 1))]
+                    [(X, ("N", D)), (location, ("M", D)), (weights, ("M", 1))]
                 )
                 return tf.matmul(self.base_kernel(X, location), weights)
 
             def var_s():
                 location = self.measure.location
                 weights = self.measure.weights
-                tf.debugging.assert_shapes([(location, ("M", 1)), (weights, ("M", 1))])
+                tf.debugging.assert_shapes([(location, ("M", D)), (weights, ("M", 1))])
                 return tf.squeeze(
                     tf.matmul(
                         tf.matmul(

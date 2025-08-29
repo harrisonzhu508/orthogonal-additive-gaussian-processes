@@ -62,6 +62,8 @@ class OAKKernel(gpflow.kernels.Kernel):
         num_dims: int,
         max_interaction_depth: int,
         noise_kernel: Optional[gpflow.kernels.Kernel] = None,
+        spatial_block_idx: Optional[List[int]] = None,
+        uniform_measure: Optional[bool] = None,
         active_dims: Optional[List[List[int]]] = None,
         constrain_orthogonal: bool = False,
         p0: Optional[List[float]] = None,
@@ -75,6 +77,7 @@ class OAKKernel(gpflow.kernels.Kernel):
         super().__init__(active_dims=range(num_dims))
         if active_dims is None:
             active_dims = [[dim] for dim in range(num_dims)]
+        print(self.active_dims)
         # assert that active dims doesn't contain duplicates and doesn't exceed the total num_dims
         flat_dims = [dim for sublist in active_dims for dim in sublist]
         assert max(flat_dims) <= num_dims, "Active dims exceeding num dims."
@@ -89,7 +92,9 @@ class OAKKernel(gpflow.kernels.Kernel):
             max_interaction_depth,
         )
         self.noise_kernel = noise_kernel
+        self.uniform_measure = uniform_measure
         self.share_var_across_orders = share_var_across_orders
+        self.spatial_block_idx = spatial_block_idx
         # p0 is a list of probability measures for binary kernels, set to None if it is not binary
         if p0 is None:
             p0 = [None] * len(base_kernels)
@@ -227,6 +232,17 @@ class OAKKernel(gpflow.kernels.Kernel):
                 gpflow.Parameter(1.0, transform=gpflow.utilities.positive())
             ]
 
+        # take spatial_block_idx kernel out
+        # make its variance not shared
+        self.spatial_kernel = None
+        if spatial_block_idx is not None:
+            self.spatial_kernel = self.kernels[spatial_block_idx]
+            # self.spatial_kernel.variance = gpflow.Parameter(1.0, transform=gpflow.utilities.positive())
+            self.kernels = [k for i, k in enumerate(self.kernels) if i != spatial_block_idx]
+            # change active_dims
+            # self.active_dims = [ad for i, ad in enumerate(self.active_dims) if i != spatial_block_idx]
+
+
     def compute_additive_terms(self, kernel_matrices):
         """
         Given a list of tensors (kernel matrices), compute a new list
@@ -256,6 +272,7 @@ class OAKKernel(gpflow.kernels.Kernel):
         return e
 
     def K(self, X, X2=None):
+        # print out active dims
         kernel_matrices = [
             k(X, X2) for k in self.kernels
         ]  # note that active dims gets applied by each kernel
@@ -273,6 +290,11 @@ class OAKKernel(gpflow.kernels.Kernel):
             )
         if self.noise_kernel:
             res = res + self.noise_kernel.K(X, X2)
+        if self.spatial_kernel:
+            # slice X and X2
+            X_sliced = self.spatial_kernel.slice(X)[0]
+            X2_sliced = self.spatial_kernel.slice(X2)[0] if X2 is not None else None
+            res = res + self.spatial_kernel.K(X_sliced, X2_sliced) * self.variances[0]
         return res
 
     def K_diag(self, X):
@@ -291,7 +313,9 @@ class OAKKernel(gpflow.kernels.Kernel):
         
         if self.noise_kernel:
             res = res + self.noise_kernel.K_diag(X)
-
+        if self.spatial_kernel:
+            X_sliced = self.spatial_kernel.slice(X)[0]
+            res = res + self.spatial_kernel.K_diag(X_sliced) * self.variances[0]
         return res
 
 class KernelComponenent(gpflow.kernels.Kernel):
@@ -312,6 +336,7 @@ class KernelComponenent(gpflow.kernels.Kernel):
             for idx, k in enumerate(self.oak_kernel.kernels)
             if idx in self.iComponent_list
         ]
+
 
     def K(self, X, X2=None):
         # Constant term
@@ -334,8 +359,10 @@ class KernelComponenent(gpflow.kernels.Kernel):
             else 1
         )
         res = var_n * tf.reduce_prod(mats, axis=0)
-        if self.noise_kernel is not None:
-            res = res + self.oak_kernel.noise_kernel.K(X, X2)
+        # if self.oak_kernel.noise_kernel is not None:
+        #     res = res + self.oak_kernel.noise_kernel.K(X, X2)
+        # if self.oak_kernel.spatial_kernel is not None:
+        #     res = res + self.oak_kernel.spatial_kernel.K(X, X2)
         return res
 
     def K_diag(self, X):
@@ -354,8 +381,10 @@ class KernelComponenent(gpflow.kernels.Kernel):
             else 1
         )
         res = var_n * tf.reduce_prod(diags, axis=0)
-        if self.noise_kernel is not None:
-            res = res + self.oak_kernel.noise_kernel.K_diag(X)
+        # if self.oak_kernel.noise_kernel is not None:
+        #     res = res + self.oak_kernel.noise_kernel.K_diag(X)
+        # if self.oak_kernel.spatial_kernel is not None:
+        #     res = res + self.oak_kernel.spatial_kernel.K_diag(X)
         return res
 
 def get_list_representation(

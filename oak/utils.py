@@ -113,18 +113,19 @@ def grammer_to_kernel(
     return selected_kernels
 
 
-def f1(x, y, sigma, lengthscales, delta, mu):
+def f1(x, y, lengthscales, delta, mu):
     # eq (44) in Appendix G.1 of paper for calculating Sobol indices
     return (
-        sigma ** 4
-        * lengthscales
+        lengthscales
         / np.sqrt(lengthscales ** 2 + 2 * delta ** 2)
         * np.exp(-((x - y) ** 2) / (4 * lengthscales ** 2))
         * np.exp(-((mu - (x + y) / 2) ** 2) / (2 * delta ** 2 + lengthscales ** 2))
     )
 
+def _pairwise(a):  # (N,) -> (N,N) broadcast helpers
+    return a[:, None], a[None, :]
 
-def f2(x, y, sigma, lengthscales, delta, mu):
+def f2(x, y, lengthscales, delta, mu):
     # eq (45) in Appendix G.1 of paper for calculating Sobol indices
     M = 1 / (lengthscales ** 2) + 1 / (lengthscales ** 2 + delta ** 2)
     m = 1 / M * (mu / (lengthscales ** 2 + delta ** 2) + x / lengthscales ** 2)
@@ -134,8 +135,7 @@ def f2(x, y, sigma, lengthscales, delta, mu):
         - m ** 2 * M
     )
     return (
-        sigma ** 4
-        * lengthscales
+        lengthscales
         * np.sqrt((lengthscales ** 2 + 2 * delta ** 2) / (delta ** 2 * M + 1))
         * np.exp(-C / 2)
         / (lengthscales ** 2 + delta ** 2)
@@ -144,16 +144,15 @@ def f2(x, y, sigma, lengthscales, delta, mu):
     )
 
 
-def f3(x, y, sigma, lengthscales, delta, mu):
+def f3(x, y, lengthscales, delta, mu):
     # eq (46) in Appendix G.1 of paper for calculating Sobol indices
-    return f2(y, x, sigma, lengthscales, delta, mu)
+    return f2(y, x, lengthscales, delta, mu)
 
 
-def f4(x, y, sigma, lengthscales, delta, mu):
+def f4(x, y, lengthscales, delta, mu):
     # eq (47) in Appendix G.1 of paper for calculating Sobol indices
     return (
-        sigma ** 4
-        * lengthscales ** 2
+        lengthscales ** 2
         * (lengthscales ** 2 + 2 * delta ** 2)
         * np.sqrt(
             (lengthscales ** 2 + delta ** 2) / (lengthscales ** 2 + 3 * delta ** 2)
@@ -217,28 +216,41 @@ def get_model_sufficient_statistics(m, get_L=True):
     else:
         return alpha
 
+def _pairwise(a):  # you already have this
+    return a[:, None], a[None, :]
 
-def compute_L(
-    X: tf.Tensor, lengthscale: float, variance: float, dim: int, delta: float, mu: float
-) -> np.ndarray:
-    # calculate the integral in eq (40) of Appendix G.1 in paper
+def compute_L(X, lengthscales, v, dims, delta, mu):
+    """
+    Builds L_u = ∫ p(x_u) \tilde k(x_u, X_u) \tilde k(x_u, X_u)^T dx_u
+    by factoring into per-dimension 1D closed forms (your f1..f4).
+    X: (N,d)
+    lengthscales: shared scalar lengthscale (keep your name)
+    v: kernel var (same name as in your f1..f4)
+    dims: iterable[int] coordinates in this block u
+    mu, delta: (d,) per-dimension Gaussian params for p(x)
+    """
     N = X.shape[0]
-    sigma = np.sqrt(variance)
-    xx = X[:, dim]
-    yy = X[:, dim]
+    F1 = np.ones((N, N))
+    F2 = np.ones((N, N))
+    F3 = np.ones((N, N))
+    F4 = np.ones((N, N))
+    if isinstance(dims, int):
+        dims = [dims]
+    for i in dims:
+        xx = X[:, i]
+        x, y = _pairwise(xx)
+        scale = v ** 2
 
-    x = np.repeat(xx, N)
-    y = np.tile(yy, N)
-    L = (
-        f1(x, y, sigma, lengthscale, delta, mu)
-        - f2(x, y, sigma, lengthscale, delta, mu)
-        - f3(x, y, sigma, lengthscale, delta, mu)
-        + f4(x, y, sigma, lengthscale, delta, mu)
-    )
-    L = np.reshape(L, (N, N))
+        # multiply per-dimension 1D factors (each already includes sigma**4)
+        F1 *= f1(x, y, lengthscales, delta, mu) * scale
+        F2 *= f2(x, y, lengthscales, delta, mu) * scale
+        F3 *= f3(x, y, lengthscales, delta, mu) * scale
+        F4 *= f4(x, y, lengthscales, delta, mu) * scale
 
-    return L
 
+    # constrained kernel combination (same signs as your 1D formulas)
+    L = F1 - F2 - F3 + F4
+    return L  # (N,N)
 
 def compute_L_binary_kernel(
     X: tf.Tensor, p0: float, variance: float, dim: int
@@ -602,7 +614,8 @@ def compute_sobol_oak(
     time_dim:   Optional[int]   = None,     # column index of time
     _user_active_dims: Optional[List[List[int]]] = None,
     share_var_across_orders: bool = True,
-    use_noise_kernel = False
+    use_noise_kernel = False,
+    spatial_block_idx = False,
 ) -> Tuple[List[List[int]], List[float]]:
     """
     Sobol numerators αᵀ L α for an OAK GP, optionally at a fixed time t*.
@@ -624,9 +637,13 @@ def compute_sobol_oak(
     # 1.  kernel structure (skip constant term) -------------------------
     num_dims = sum(len(d) for d in _user_active_dims) if _user_active_dims else model.data[0].shape[1]
     sel, components = get_list_representation(
-        model.kernel, num_dims=num_dims, _user_active_dims=_user_active_dims
+        model.kernel, num_dims=num_dims, _user_active_dims=_user_active_dims, 
     )
     sel, components = sel[1:], components[1:]
+    if spatial_block_idx:
+        # remove block is contains spatial_block_idx
+        components = [components[i] for i, s in enumerate(sel) if spatial_block_idx not in s]
+        sel = [s for s in sel if spatial_block_idx not in s]
 
     # 2.  inputs X and α statistics -------------------------------------
     is_sparse  = isinstance(model, (gpflow.models.SGPR, gpflow.models.SVGP))
@@ -670,13 +687,13 @@ def compute_sobol_oak(
                 else:                                               # RBF / others
                     v = subk.base_kernel.variance.numpy()
 
-            dim = subk.active_dims[0]
+            dims = subk.active_dims
 
             # -------- time dimension branch --------------------------
-            if time_point is not None and dim == time_dim:
+            if time_point is not None and dims == time_dim:
                 k_vec = subk(                                       # shape (1,N)
                     tf.reshape(tf.constant(time_point, dtype=X.dtype), (1, 1)),
-                    tf.reshape(X[:, dim], (-1, 1)),
+                    tf.reshape(X[:, dims], (-1, 1)),
                 ).numpy().flatten()                                 # length N
                 L_np *= np.outer(k_vec, k_vec)
                 continue
@@ -688,15 +705,16 @@ def compute_sobol_oak(
                     and not isinstance(subk.measure, (EmpiricalMeasure, MOGMeasure))
                 ):
                     l = subk.base_kernel.lengthscales.numpy()
-                    L_np *= compute_L(X, l, v, dim, delta, mu)
+                    L_np *= compute_L(X, l, v, dims, delta, mu)
                 elif isinstance(subk.measure, EmpiricalMeasure):
+                    assert len(dims) == 1, "EmpiricalMeasure only supports 1D active dims"
                     L_np *= (
                         v**2
                         * compute_L_empirical_measure(
                             subk.measure.location,
                             subk.measure.weights,
                             subk,
-                            tf.reshape(X[:, dim], [-1, 1]),
+                            tf.reshape(X[:, dims], [-1, 1]),
                         ).numpy()
                     )
                 else:
@@ -704,17 +722,19 @@ def compute_sobol_oak(
 
             # -------- binary ----------------------------------------
             elif isinstance(subk, OrthogonalBinary):
-                L_np *= compute_L_binary_kernel(X, subk.p0, v, dim)
+                assert len(dims) == 1, "OrthogonalBinary only supports 1D active dims"
+                L_np *= compute_L_binary_kernel(X, subk.p0, v, dims)
 
             # -------- categorical -----------------------------------
             elif isinstance(subk, OrthogonalCategorical):
+                assert len(dims) == 1, "OrthogonalCategorical only supports 1D active dims"
                 L_np *= compute_L_categorical_kernel(
                     X,
                     subk.W.numpy(),
                     subk.kappa.numpy(),
                     subk.p,
                     v,
-                    dim,
+                    dims,
                 )
             else:
                 raise NotImplementedError(f"Unsupported kernel type: {type(subk)}")

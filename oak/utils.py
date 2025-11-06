@@ -323,27 +323,43 @@ def compute_L_categorical_kernel(
 
 @tf.function
 def compute_L_empirical_measure(
-    x: tf.Tensor, w: tf.Tensor, kernel: OrthogonalRBFKernel, z: tf.Tensor
-) -> np.ndarray:
+    x: tf.Tensor, w: tf.Tensor, kernel, z: tf.Tensor
+) -> tf.Tensor:
     """
     Compute L matrix needed for sobol index calculation with empirical measure
-    :param x: location of empirical measure
-    :param w: weights of empirical measure, input density of the form 1/(\sum_i w_i) * \sum_i w_i (x==x_i)
+    :param x: location of empirical measure [M, D_measure]
+    :param w: weights of empirical measure [M, 1]
     :param kernel: constrained kernel
-    :param z: training data in full GP or inducing points locations in sparse GP
-    :return: sobol value L matrix
+    :param z: training data/inducing points [N, D_kernel]
+    :return: sobol value L matrix [N, N]
     """
+    
+    # Convert to tensors, preserving original dtype
+    x = tf.convert_to_tensor(x)
+    z = tf.convert_to_tensor(z)
+    w = tf.convert_to_tensor(w)
+    
+    # Ensure consistent dtype (use the dtype of z as reference)
+    target_dtype = z.dtype
+    if x.dtype != target_dtype:
+        x = tf.cast(x, target_dtype)
+    if w.dtype != target_dtype:
+        w = tf.cast(w, target_dtype)
+    
+    # Get dimensions
+    m = tf.shape(z)[0]  # number of training/inducing points
+    n = tf.shape(x)[0]  # number of empirical locations
 
-    # number of training/inducing points
-    m = z.shape[0]
-    # number of empirical locations
-    n = x.shape[0]
-
-    kxu = kernel.K(x, z)
-    tf.debugging.assert_shapes([(kxu, (n, m))])
+    
+    # Compute kernel between empirical locations and training points
+    kxu = kernel.K(x, z)  # Shape: [n, m]
+    
+    # Reshape weights to [1, n] for matrix multiplication
     w = tf.reshape(w, [1, n])
+    
+    # Compute L = sum_i w_i * k(x_i, z)^T * k(x_i, z)
     L = tf.matmul(w * tf.transpose(kxu), kxu)
-
+    
     return L
 
 
@@ -665,7 +681,6 @@ def compute_sobol_oak(
 
     N = X.shape[0]
     sobol_vals: List[float] = []
-
     # 3.  component loop ------------------------------------------------
     for comp in components:
         if len(comp.iComponent_list) == 0:
@@ -707,14 +722,24 @@ def compute_sobol_oak(
                     l = subk.base_kernel.lengthscales.numpy()
                     L_np *= compute_L(X, l, v, dims, delta, mu)
                 elif isinstance(subk.measure, EmpiricalMeasure):
-                    assert len(dims) == 1, "EmpiricalMeasure only supports 1D active dims"
+                    print("DEBUG", "EmpiricalMeasure in Sobol", dims, subk)
+                    # assert len(dims) == 1, "EmpiricalMeasure only supports 1D active dims"
+                    # L_np *= (
+                    #     v**2
+                    #     * compute_L_empirical_measure(
+                    #         subk.measure.location,
+                    #         subk.measure.weights,
+                    #         subk,
+                    #         tf.reshape(X[:, dims], [-1, 1]),
+                    #     ).numpy()
+                    # )
                     L_np *= (
                         v**2
                         * compute_L_empirical_measure(
                             subk.measure.location,
                             subk.measure.weights,
                             subk,
-                            tf.reshape(X[:, dims], [-1, 1]),
+                            X[:, dims] if isinstance(dims, (list, tuple, np.ndarray)) else tf.reshape(X[:, dims], [-1, 1]),
                         ).numpy()
                     )
                 else:

@@ -125,7 +125,6 @@ class OAKKernel(gpflow.kernels.Kernel):
                         else None
                         for dim in range(len(active_dims))
                     ]
-                    print(location_shapes)
                     assert (
                         location_shapes == location_weights
                     ), f"Shape of empirical measure locations {location_shapes} do not match weights {location_weights}"
@@ -289,6 +288,7 @@ class OAKKernel(gpflow.kernels.Kernel):
                 tf.add, [self.variances[0] * additive_terms[0]] + additive_terms[1:]
             )
         if self.noise_kernel:
+            print(X.shape, self.active_dims)
             res = res + self.noise_kernel.K(X, X2)
         if self.spatial_kernel:
             # slice X and X2

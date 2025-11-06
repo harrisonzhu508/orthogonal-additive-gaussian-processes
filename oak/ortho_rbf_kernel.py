@@ -189,32 +189,130 @@ class OrthogonalRBFKernel(gpflow.kernels.Kernel):
                     denom2 = l2 + 2 * var
                     # variance of the embedding: σ² * (ℓ² / (ℓ² + 2·var))^(D/2)
                     return sigma2 * tf.pow(l2 / denom2, D / 2)
-                
-        if isinstance(self.measure, EmpiricalMeasure):
-            D = len(self.active_dims)
 
+        if isinstance(self.measure, EmpiricalMeasure):
             print(f"OrthogonalRBFKernel: EmpiricalMeasure with {len(self.measure.location)} points")
 
             def cov_X_s(X):
                 location = self.measure.location
                 weights = self.measure.weights
-                tf.debugging.assert_shapes(
-                    [(X, ("N", D)), (location, ("M", D)), (weights, ("M", 1))]
-                )
-                return tf.matmul(self.base_kernel(X, location), weights)
+                
+                # Convert to tensor and ensure 2D
+                X = tf.convert_to_tensor(X)
+                if len(tf.shape(X)) == 1:
+                    X = tf.reshape(X, [-1, 1])
+                
+                location = tf.convert_to_tensor(location)
+                if len(tf.shape(location)) == 1:
+                    location = tf.reshape(location, [-1, 1])
+                
+                # Handle active dimensions
+                if hasattr(self, 'active_dims') and self.active_dims is not None:
+                    active_dims = self.active_dims
+                    if isinstance(active_dims, (int, np.integer)):
+                        active_dims = [active_dims]
+                    
+                    # Convert active_dims to tensor with consistent type
+                    active_dims = tf.convert_to_tensor(active_dims, dtype=tf.int32)
+                    
+                    # Check if X already has the right dimensions (already sliced)
+                    X_dim = tf.shape(X)[1]
+                    expected_dim = tf.shape(active_dims)[0]  # Number of active dimensions
+                    
+                    # If X already has the expected number of dimensions, it's likely already sliced
+                    if X_dim == expected_dim:
+                        # X is already in the right subspace, use it as is
+                        pass
+                    elif X_dim > expected_dim:
+                        # X has more dimensions, need to select the active ones
+                        # Validate that all active_dims are within bounds
+                        max_dim = tf.cast(X_dim, tf.int32)  # Cast to same type as active_dims
+                        
+                        # Check bounds for each dimension
+                        tf.debugging.assert_less(
+                            tf.reduce_max(active_dims), 
+                            max_dim,
+                            message=f"active_dims out of bounds for input dimensions"
+                        )
+                        
+                        X = tf.gather(X, active_dims, axis=1)
+                    else:
+                        # X has fewer dimensions than expected
+                        # This happens when the kernel is called on already-sliced data
+                        # Just use X as is
+                        pass
+                
+                # Ensure location matches X's dimensionality
+                if tf.shape(location)[1] != tf.shape(X)[1]:
+                    # If location has more dimensions, select the same ones
+                    if hasattr(self, 'active_dims') and self.active_dims is not None:
+                        active_dims_tensor = tf.convert_to_tensor(active_dims, dtype=tf.int32)
+                        if tf.shape(location)[1] > tf.shape(active_dims_tensor)[0]:
+                            location = tf.gather(location, active_dims_tensor, axis=1)
+                
+                # Compute kernel
+                K_Xs = self.base_kernel(X, location)  # Shape: [N, M]
+                
+                # Weight by empirical measure weights
+                return tf.matmul(K_Xs, weights)  # Shape: [N, 1]
 
             def var_s():
+                """
+                Compute variance of measure s
+                """
                 location = self.measure.location
                 weights = self.measure.weights
-                tf.debugging.assert_shapes([(location, ("M", D)), (weights, ("M", 1))])
+                
+                # Ensure location is at least 2D
+                location = tf.convert_to_tensor(location)
+                if len(tf.shape(location)) == 1:
+                    location = tf.expand_dims(location, axis=-1)
+                
+                # Extract active dimensions if specified
+                if hasattr(self, 'active_dims') and self.active_dims is not None:
+                    active_dims = self.active_dims
+                    if np.isscalar(active_dims):
+                        active_dims = [active_dims]
+                    
+                    if tf.shape(location)[1] != len(active_dims):
+                        location = tf.gather(location, active_dims, axis=1)
+                
+                # Compute weighted variance
+                K_ss = self.base_kernel(location)  # Shape: [M, M]
+                
+                # Compute w^T K w
                 return tf.squeeze(
                     tf.matmul(
-                        tf.matmul(
-                            weights, self.base_kernel(location), transpose_a=True
-                        ),
-                        weights,
+                        tf.matmul(weights, K_ss, transpose_a=True),
+                        weights
                     )
                 )
+
+        # if isinstance(self.measure, EmpiricalMeasure):
+        #     D = len(self.active_dims)
+
+        #     print(f"OrthogonalRBFKernel: EmpiricalMeasure with {len(self.measure.location)} points")
+
+        #     def cov_X_s(X):
+        #         location = self.measure.location
+        #         weights = self.measure.weights
+        #         tf.debugging.assert_shapes(
+        #             [(X, ("N", D)), (location, ("M", D)), (weights, ("M", 1))]
+        #         )
+        #         return tf.matmul(self.base_kernel(X, location), weights)
+
+        #     def var_s():
+        #         location = self.measure.location
+        #         weights = self.measure.weights
+        #         tf.debugging.assert_shapes([(location, ("M", D)), (weights, ("M", 1))])
+        #         return tf.squeeze(
+        #             tf.matmul(
+        #                 tf.matmul(
+        #                     weights, self.base_kernel(location), transpose_a=True
+        #                 ),
+        #                 weights,
+        #             )
+        #         )
 
         if isinstance(self.measure, MOGMeasure):
 

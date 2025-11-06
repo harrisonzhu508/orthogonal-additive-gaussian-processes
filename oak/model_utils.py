@@ -346,6 +346,8 @@ class oak_model:
         self.noise_kernel = noise_kernel
         self.lam_concurvity = lam_concurvity
         self.use_copula_blks = use_copula_blks
+        if self.use_copula_blks is None:
+            self.use_copula_blks = [None for _ in range(len(active_dims))]
         self.uniform_measure = uniform_measure
         self.spatial_block_idx = spatial_block_idx
 
@@ -783,13 +785,27 @@ class oak_model:
         Returns
         -------
         phi : (D,) ndarray
-            Shapley value for each input dimension (sums to 1).
+            Shapley value for each input dimension. If additional variance components
+            (e.g. phylogenetic variance) are present, the entries sum to less than 1,
+            with the remainder recorded in the returned variance components.
         """
-        # 1) Get Sobol indices and the tuple-of-indices list that tells
-        #    which additive term each Sobol number belongs to
-        sobol = self.get_sobol(likelihood_variance=likelihood_variance, return_variance=return_variance)
+        # 1) Get Sobol indices, along with any extra variance components (e.g. phylo, likelihood)
+        sobol_result = self.get_sobol(
+            likelihood_variance=likelihood_variance,
+            return_variance=True,
+        )
+        if isinstance(sobol_result, tuple):
+            sobol, variance_components = sobol_result
+        else:
+            sobol = sobol_result
+            variance_components = {}
+
+        # expose last variance breakdown for downstream inspection
+        self.last_variance_components = variance_components
+
         tuples = self.tuple_of_indices        # created inside get_sobol()
-        D = len(self._user_active_dims)
+        active_blocks = self._user_active_dims or [[i] for i in range(self.num_dims)]
+        D = len(active_blocks)
 
         # 2) Allocate accumulator
         phi = np.zeros(D, dtype=float)
@@ -802,8 +818,16 @@ class oak_model:
             for j in u:
                 phi[j] += share
 
-        # 4) Numerical guard: enforce exact sum‑to‑one property
-        phi /= phi.sum()
+        # 4) If additional variance components exist (e.g. phylogenetic), Shapley entries
+        #    represent their share of the total directly—no re-normalisation.
+        #    Without extras, retain legacy normalisation for numerical stability.
+        if not variance_components:
+            total = phi.sum()
+            if total > 0:
+                phi /= total
+
+        if return_variance:
+            return phi, variance_components
 
         return phi
 
@@ -864,8 +888,8 @@ class oak_model:
             # from selected_dims, remove lists containing index 1
             sel = [d for d in sel if self.spatial_block_idx not in d]
 
-        tuple_of_indices = sel[1:]  # drop constant term
         self.get_sobol(likelihood_variance)
+        tuple_of_indices = sel[1:]  # drop constant term
         order = np.argsort(self.normalised_sobols)[::-1]
         print(tuple_of_indices)
 
@@ -878,32 +902,33 @@ class oak_model:
 
         for n in order[:top_n]:
             dims = tuple_of_indices[n]
-
             # ---------- 1-D effect ----------------------------------------------
             if len(dims) == 1:
                 d = dims[0]
                 # skip if this dim sits inside a multi-dim block
                 if len(dim_to_block[d]) > 1:
                     continue
+                # which block
+                block_idx = self._user_active_dims.index(dim_to_block[d])
 
                 # otherwise unchanged (continuous / binary / categorical)
                 if d in self.continuous_index:
                     fig_list.append(
                         plotting_utils.plot_single_effect(
                             m=self.m,
-                            i=d,
-                            covariate_name=X_columns[d],
-                            title=f"{X_columns[d]} (R={self.normalised_sobols[n]:.3f})",
-                            x_transform=self._get_x_inverse_transformer(d),
+                            i=block_idx,
+                            covariate_name=X_columns[block_idx],
+                            title=f"{X_columns[block_idx]} (R={self.normalised_sobols[n]:.3f})",
+                            x_transform=self._get_x_inverse_transformer(block_idx),
                             y_transform=transformer_y,
                             semilogy=semilogy,
                             plot_corrected_data=False,
                             plot_raw_data=False,
-                            X_list=X_lists[d],
+                            X_list=X_lists[block_idx],
                             tikz_path=tikz_path,
-                            ylim=ylim[d],
-                            quantile_range=quantile_range[d],
-                            log_bin=log_bin[d],
+                            ylim=ylim[block_idx],
+                            quantile_range=quantile_range[block_idx],
+                            log_bin=log_bin[block_idx],
                             num_bin=num_bin,
                         )
                     )
@@ -935,12 +960,14 @@ class oak_model:
             # ---------- 2-D interaction -----------------------------------------
             elif len(dims) == 2:
                 # skip if either kernel-index corresponds to a true 2D-active_dims kernel
-                if any(len(self._user_active_dims[kidx]) == 2 for kidx in dims):
+                if any(len(self._user_active_dims[kidx]) > 1 for kidx in dims):
                     continue
 
                 i, j = dims
 
                 # continuous–continuous
+                print(i, j)
+                print(X_columns[i], X_columns[j])
                 if i in self.continuous_index and j in self.continuous_index:
                     fig_list.append(
                         plotting_utils.plot_second_order(
@@ -949,7 +976,7 @@ class oak_model:
                             j,
                             [X_columns[i], X_columns[j]],
                             [self._get_x_inverse_transformer(i),
-                             self._get_x_inverse_transformer(j)],
+                            self._get_x_inverse_transformer(j)],
                             transformer_y,
                             title=f"{X_columns[i]} & {X_columns[j]} "
                                   f"(R={self.normalised_sobols[n]:.3f})",

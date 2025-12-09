@@ -118,7 +118,7 @@ for tree_name in tree_names:
     oak.fit(X, y, initialise_inducing_points=True, optimise=True)
 
     # ─── 6) Save model ───────────────────────────────────────────────────────
-    model_dir = Path(f"speech_phylo/final_figures/models")
+    model_dir = Path(f"speech_phylo/final_phyloregression_results/models")
     model_stub = f"oak_model_{tree_name}"
     save_model(oak.m, filename=model_dir / model_stub)
 

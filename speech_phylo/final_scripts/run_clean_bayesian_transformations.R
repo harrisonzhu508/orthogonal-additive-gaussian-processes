@@ -360,7 +360,7 @@ for (tree_name in tree_names) {
 
         # Save CSV
         csv_path <- file.path(
-            "speech_phylo/final_blr_results",
+            "speech_phylo/final_phyloregression_results",
             paste0("phylolm_", tree_name, "_", coord_method, ".csv")
         )
 

@@ -1,0 +1,9 @@
+interaction,sobol_index
+normalized_phylo_variance,0.92687707
+lon,0.07312135
+normalized_likelihood_variance,0.00000158
+lat,0.00000000
+log_speakers,0.00000000
+lon & lat,0.00000000
+lon & log_speakers,0.00000000
+lat & log_speakers,0.00000000

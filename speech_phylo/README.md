@@ -53,6 +53,8 @@ pip install numpy pandas matplotlib seaborn tqdm geopandas shapely scikit-learn 
 
 # Install the OAK fork in editable mode so `oak.model_utils` is importable
 pip install -e . # in ../speech_phylo (parent of this README)
+<<<<<<< HEAD
+=======
 ```
 
 ### Full installation instructions
@@ -121,4 +123,5 @@ python speech_phylo/final_scripts/run_oak.py
 # For Jupyter notebook - start kernel from speech_phylo/ directory:
 cd ~/speech_phylo
 jupyter notebook final_plots.ipynb
+>>>>>>> 3ca896ea940df725c4002789c71e27724c560052
 ```

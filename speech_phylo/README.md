@@ -53,4 +53,75 @@ pip install numpy pandas matplotlib seaborn tqdm geopandas shapely scikit-learn 
 
 # Install the OAK fork in editable mode so `oak.model_utils` is importable
 pip install -e . # in ../speech_phylo (parent of this README)
+<<<<<<< HEAD
+=======
+```
+
+### Full installation instructions
+
+```
+# =============================================================================
+# 1. Download and install Miniconda
+# =============================================================================
+
+cd ~
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh -b -p ~/miniconda3
+
+# Initialize conda for your shell
+~/miniconda3/bin/conda init bash
+source ~/.bashrc
+
+# =============================================================================
+# 2. Create and activate environment
+# =============================================================================
+
+conda create -n speech_phylo python=3.7 -y
+conda activate speech_phylo
+
+# =============================================================================
+# 3. Install Python dependencies
+# =============================================================================
+
+pip install --upgrade pip
+
+# Core + geo + GP stack
+pip install numpy pandas matplotlib seaborn tqdm geopandas shapely scikit-learn \
+            tensorflow tensorflow_probability gpflow dendropy jupyter ipython
+
+# =============================================================================
+# 4. Clone and install the OAK fork
+# =============================================================================
+
+cd ~
+cd orthogonal-additive-gaussian-processes
+
+# Install OAK in editable mode
+pip install -e .
+
+# =============================================================================
+# 5. Install R and R dependencies
+# =============================================================================
+
+# Install R via conda (easier than system R)
+conda install -c conda-forge r-base r-essentials -y
+
+# Install R packages
+R -e 'install.packages(c("ape", "brms", "dplyr", "tibble", "jsonlite", "doParallel", "foreach", "tidyr", "TreeDist"), repos="https://cloud.r-project.org")'
+
+# =============================================================================
+# 7. Running the scripts
+# =============================================================================
+
+# For R Bayesian script:
+Rscript speech_phylo/final_scripts/run_clean_bayesian_transformations.R
+
+# For Python OAK script:
+python speech_phylo/final_scripts/run_oak.py
+
+
+# For Jupyter notebook - start kernel from speech_phylo/ directory:
+cd ~/speech_phylo
+jupyter notebook final_plots.ipynb
+>>>>>>> 3ca896ea940df725c4002789c71e27724c560052
 ```

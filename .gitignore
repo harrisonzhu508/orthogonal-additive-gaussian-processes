@@ -17,3 +17,5 @@ __pycache__/
 dist
 /doc/_apidoc/
 build
+speech_phylo/IECoR_Main_M3_Binary_Covarion_Rates_By_Mg_Bin_combined_prunedtospeech.trees
+*.trees

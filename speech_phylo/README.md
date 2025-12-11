@@ -74,7 +74,7 @@ source ~/.bashrc
 # 2. Create and activate environment
 # =============================================================================
 
-conda create -n speech_phylo python=3.10 -y
+conda create -n speech_phylo python=3.7 -y
 conda activate speech_phylo
 
 # =============================================================================
@@ -92,10 +92,7 @@ pip install numpy pandas matplotlib seaborn tqdm geopandas shapely scikit-learn 
 # =============================================================================
 
 cd ~
-git clone https://github.com/harrisonzhu508/orthogonal-additive-gaussian-processes.git
 cd orthogonal-additive-gaussian-processes
-git checkout my-oak-improvements
-git switch -c my-oak-improvements origin/my-oak-improvements  # Create local tracking branch
 
 # Install OAK in editable mode
 pip install -e .

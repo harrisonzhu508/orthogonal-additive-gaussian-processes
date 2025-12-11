@@ -190,6 +190,31 @@ for (tree_name in tree_names) {
         model <- do.call(brm, brm_args)
         model_type <- "brms_phylo"
 
+        # Extract posterior samples
+        posterior <- as.data.frame(model)
+
+        # Helper function for summarizing posterior samples
+        summarize_posterior <- function(x) {
+            list(
+                mean  = mean(x, na.rm = TRUE),
+                sd    = sd(x, na.rm = TRUE),
+                q2.5  = unname(quantile(x, 0.025, na.rm = TRUE)),
+                q50   = unname(quantile(x, 0.50, na.rm = TRUE)),
+                q97.5 = unname(quantile(x, 0.975, na.rm = TRUE))
+            )
+        }
+
+        # Extract variance components from posterior
+        phylo_sd_samples <- posterior$sd_language_factor__Intercept
+        phylo_var_samples_raw <- phylo_sd_samples^2
+        sigma_samples <- posterior$sigma
+        residual_var_samples <- sigma_samples^2
+
+        # CRITICAL: Scale phylogenetic variance by tr(V)/n
+        # For u ~ N(0, σ²_phylo * V), the average variance is σ²_phylo * mean(diag(V))
+        V_mean_diag <- mean(diag(V))  # = tr(V)/n
+        phylo_var_samples <- phylo_var_samples_raw * V_mean_diag
+
         coef_df <- as.data.frame(brms::fixef(model, probs = c(0.025, 0.975)))
         colnames(coef_df) <- c("Estimate", "Est.Error", "CI_lower", "CI_upper")
 
@@ -318,6 +343,114 @@ for (tree_name in tree_names) {
             stringsAsFactors  = FALSE
         )
 
+        # ─── Fixed Effects Variance Decomposition ─────────────────────────
+        # Get design matrix
+        # Get design matrix
+        # ─── Fixed Effects Variance Decomposition ─────────────────────────
+        # Get design matrix
+        X <- model.matrix(~ longitude_norm + latitude_norm + log_n_speakers_norm +
+                            longitude_norm:latitude_norm +
+                            latitude_norm:log_n_speakers_norm +
+                            longitude_norm:log_n_speakers_norm,
+                        data = model_df)
+
+        # brms names fixed effects with "b_" prefix
+        brms_names <- c(
+            "(Intercept)" = "b_Intercept",
+            "longitude_norm" = "b_longitude_norm",
+            "latitude_norm" = "b_latitude_norm",
+            "log_n_speakers_norm" = "b_log_n_speakers_norm",
+            "longitude_norm:latitude_norm" = "b_longitude_norm:latitude_norm",
+            "latitude_norm:log_n_speakers_norm" = "b_latitude_norm:log_n_speakers_norm",
+            "longitude_norm:log_n_speakers_norm" = "b_longitude_norm:log_n_speakers_norm"
+        )
+
+        # Get posterior samples of fixed effects using brms names
+        beta_samples <- as.matrix(posterior[, brms_names[colnames(X)]])
+        colnames(beta_samples) <- colnames(X)
+
+        # Total fixed effects variance: Var(Xβ)
+        Xbeta_samples <- tcrossprod(X, beta_samples)  # n_obs x n_samples
+        fixed_var_samples <- apply(Xbeta_samples, 2, var)
+
+        # Per-term variance contribution
+        term_names <- colnames(X)
+        term_variances <- list()
+
+        for (term in term_names) {
+            Xj <- X[, term, drop = FALSE]
+            beta_j_samples <- beta_samples[, term]
+            Xj_beta_j <- outer(Xj[, 1], beta_j_samples)
+            term_var_samples <- apply(Xj_beta_j, 2, var)
+            term_variances[[term]] <- summarize_posterior(term_var_samples)
+        }
+
+        # Total variance = fixed + phylo (scaled) + residual
+        total_var_samples <- fixed_var_samples + phylo_var_samples + residual_var_samples
+        
+        # Proportions
+        prop_fixed_samples <- fixed_var_samples / total_var_samples
+        prop_phylo_samples <- phylo_var_samples / total_var_samples
+        prop_residual_samples <- residual_var_samples / total_var_samples
+
+        # Full variance decomposition
+        variance_decomposition <- list(
+            # Fixed effects
+            fixed_variance = summarize_posterior(fixed_var_samples),
+            fixed_prop = summarize_posterior(prop_fixed_samples),
+            term_variances = term_variances,
+            
+            # Phylogenetic (both raw and effective)
+            phylo_variance_raw = summarize_posterior(phylo_var_samples_raw),
+            phylo_variance = summarize_posterior(phylo_var_samples),  # effective = raw * tr(V)/n
+            phylo_prop = summarize_posterior(prop_phylo_samples),
+            
+            # Residual
+            residual_variance = summarize_posterior(residual_var_samples),
+            residual_prop = summarize_posterior(prop_residual_samples),
+            
+            # Total
+            total_variance = summarize_posterior(total_var_samples),
+            
+            # Phylogenetic signal (traditional: phylo / (phylo + residual), using scaled variances)
+            phylo_signal = summarize_posterior(phylo_var_samples / (phylo_var_samples + residual_var_samples)),
+            
+            # Covariance matrix info
+            V_trace = sum(diag(V)),
+            V_trace_normalized = V_mean_diag,  # tr(V)/n
+            V_mean_diag = V_mean_diag,
+            V_mean_offdiag = mean(V[lower.tri(V)]),
+            n_taxa = nrow(V)
+        )
+
+        cat("\nVariance Decomposition (with phylo scaled by tr(V)/n):\n")
+        cat(sprintf("  V scaling factor (tr(V)/n): %.4f\n", V_mean_diag))
+        cat(sprintf("  Fixed effects (Xβ):    %.4f (%.1f%%, 95%% CI: %.1f%% – %.1f%%)\n",
+            variance_decomposition$fixed_variance$mean,
+            variance_decomposition$fixed_prop$mean * 100,
+            variance_decomposition$fixed_prop$q2.5 * 100,
+            variance_decomposition$fixed_prop$q97.5 * 100))
+        cat(sprintf("  Phylogenetic (raw σ²): %.4f\n",
+            variance_decomposition$phylo_variance_raw$mean))
+        cat(sprintf("  Phylogenetic (eff.):   %.4f (%.1f%%, 95%% CI: %.1f%% – %.1f%%)\n",
+            variance_decomposition$phylo_variance$mean,
+            variance_decomposition$phylo_prop$mean * 100,
+            variance_decomposition$phylo_prop$q2.5 * 100,
+            variance_decomposition$phylo_prop$q97.5 * 100))
+        cat(sprintf("  Residual:              %.4f (%.1f%%, 95%% CI: %.1f%% – %.1f%%)\n",
+            variance_decomposition$residual_variance$mean,
+            variance_decomposition$residual_prop$mean * 100,
+            variance_decomposition$residual_prop$q2.5 * 100,
+            variance_decomposition$residual_prop$q97.5 * 100))
+        cat(sprintf("  Phylo signal (λ):      %.4f (95%% CI: %.4f – %.4f)\n",
+            variance_decomposition$phylo_signal$mean,
+            variance_decomposition$phylo_signal$q2.5,
+            variance_decomposition$phylo_signal$q97.5))
+        cat("\n  Per-term variances:\n")
+        for (term in names(term_variances)) {
+            cat(sprintf("    %s: %.4f\n", term, term_variances[[term]]$mean))
+        }
+
         # Add coefficient information (normalized / transformed scale)
         for (i in seq_len(nrow(coef_df))) {
             term_name       <- rownames(coef_df)[i]
@@ -357,6 +490,45 @@ for (tree_name in tree_names) {
         csv_results$waic                     <- waic_metrics$waic
         csv_results$waic_se                  <- waic_metrics$waic_se
         csv_results$p_waic                   <- waic_metrics$p_waic
+
+        ## Variance decomposition
+        # Fixed effects variance
+        csv_results$fixed_var_mean       <- variance_decomposition$fixed_variance$mean
+        csv_results$fixed_var_sd         <- variance_decomposition$fixed_variance$sd
+        csv_results$fixed_var_q2_5       <- variance_decomposition$fixed_variance$q2.5
+        csv_results$fixed_var_q97_5      <- variance_decomposition$fixed_variance$q97.5
+        csv_results$fixed_prop_mean      <- variance_decomposition$fixed_prop$mean
+        csv_results$fixed_prop_q2_5      <- variance_decomposition$fixed_prop$q2.5
+        csv_results$fixed_prop_q97_5     <- variance_decomposition$fixed_prop$q97.5
+
+        # Per-term variances
+        for (term in names(term_variances)) {
+            term_clean <- gsub(":", "_", term)
+            term_clean <- gsub("\\(|\\)", "", term_clean)
+            csv_results[[paste0("var_", term_clean)]] <- term_variances[[term]]$mean
+        }
+
+        # Phylogenetic variance (raw and effective)
+        csv_results$phylo_var_raw_mean   <- variance_decomposition$phylo_variance_raw$mean
+        csv_results$phylo_var_eff_mean   <- variance_decomposition$phylo_variance$mean
+        csv_results$phylo_prop_mean      <- variance_decomposition$phylo_prop$mean
+        csv_results$phylo_prop_q2_5      <- variance_decomposition$phylo_prop$q2.5
+        csv_results$phylo_prop_q97_5     <- variance_decomposition$phylo_prop$q97.5
+        
+        # Residual
+        csv_results$residual_var_mean    <- variance_decomposition$residual_variance$mean
+        csv_results$residual_prop_mean   <- variance_decomposition$residual_prop$mean
+        csv_results$residual_prop_q2_5   <- variance_decomposition$residual_prop$q2.5
+        csv_results$residual_prop_q97_5  <- variance_decomposition$residual_prop$q97.5
+        
+        # Phylogenetic signal
+        csv_results$phylo_signal_mean    <- variance_decomposition$phylo_signal$mean
+        csv_results$phylo_signal_q2_5    <- variance_decomposition$phylo_signal$q2.5
+        csv_results$phylo_signal_q97_5   <- variance_decomposition$phylo_signal$q97.5
+        
+        # V matrix info
+        csv_results$V_trace_norm         <- variance_decomposition$V_trace_normalized
+        csv_results$V_mean_diag          <- variance_decomposition$V_mean_diag
 
         # Save CSV
         csv_path <- file.path(

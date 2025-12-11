@@ -2384,332 +2384,332 @@
   "coordinate_method": "log_plus_10",
   "coordinate_transform": "scale(log(x + 10))",
   "r_squared": {
-    "mean": 0.6967,
-    "sd": 0.4328,
-    "q2.5": 0.1176,
-    "q97.5": 0.9959
+    "mean": 0.6964,
+    "sd": 0.4313,
+    "q2.5": 0.1197,
+    "q97.5": 0.9956
   },
   "goodness_of_fit": {
-    "rmse": 0.0173,
-    "mae": 0.0125,
+    "rmse": 0.0174,
+    "mae": 0.0124,
     "loo": {
       "available": true,
-      "elpd_loo": 32.4982,
-      "elpd_loo_se": 3.6692,
-      "p_loo": 49.6276,
-      "looic": -64.9965,
-      "looic_se": 7.3384
+      "elpd_loo": 33.7587,
+      "elpd_loo_se": 2.8295,
+      "p_loo": 48.6796,
+      "looic": -67.5174,
+      "looic_se": 5.659
     },
     "waic": {
       "available": true,
-      "waic": -80.9372,
-      "waic_se": 3.3793,
-      "p_waic": 41.6572
+      "waic": -80.1698,
+      "waic_se": 3.4909,
+      "p_waic": 42.3534
     }
   },
   "summary": [
     {
       "term": "Intercept",
-      "Estimate": 1.9012,
-      "Est.Error": 0.1057,
-      "CI_lower": 1.7028,
-      "CI_upper": 2.1044
+      "Estimate": 1.893,
+      "Est.Error": 0.1047,
+      "CI_lower": 1.7065,
+      "CI_upper": 2.1042
     },
     {
       "term": "longitude_norm",
-      "Estimate": -0.1109,
-      "Est.Error": 0.0698,
-      "CI_lower": -0.2518,
-      "CI_upper": 0.0169
+      "Estimate": -0.1116,
+      "Est.Error": 0.0657,
+      "CI_lower": -0.2513,
+      "CI_upper": 0.0202
     },
     {
       "term": "latitude_norm",
-      "Estimate": 0.0041,
-      "Est.Error": 0.0842,
-      "CI_lower": -0.1636,
-      "CI_upper": 0.1543
+      "Estimate": -0.0082,
+      "Est.Error": 0.0776,
+      "CI_lower": -0.162,
+      "CI_upper": 0.1544
     },
     {
       "term": "log_n_speakers_norm",
-      "Estimate": 0.0055,
-      "Est.Error": 0.0434,
-      "CI_lower": -0.074,
-      "CI_upper": 0.0933
+      "Estimate": 0.0082,
+      "Est.Error": 0.0401,
+      "CI_lower": -0.0744,
+      "CI_upper": 0.0912
     },
     {
       "term": "longitude_norm:latitude_norm",
-      "Estimate": 0.0273,
-      "Est.Error": 0.0947,
-      "CI_lower": -0.1728,
-      "CI_upper": 0.2089
+      "Estimate": 0.0503,
+      "Est.Error": 0.086,
+      "CI_lower": -0.1267,
+      "CI_upper": 0.2025
     },
     {
       "term": "latitude_norm:log_n_speakers_norm",
-      "Estimate": -0.0247,
-      "Est.Error": 0.049,
-      "CI_lower": -0.1207,
-      "CI_upper": 0.0749
+      "Estimate": -0.0319,
+      "Est.Error": 0.0501,
+      "CI_lower": -0.1187,
+      "CI_upper": 0.0696
     },
     {
       "term": "longitude_norm:log_n_speakers_norm",
-      "Estimate": 0.0212,
-      "Est.Error": 0.0469,
-      "CI_lower": -0.0627,
-      "CI_upper": 0.1144
+      "Estimate": 0.0268,
+      "Est.Error": 0.0422,
+      "CI_lower": -0.0609,
+      "CI_upper": 0.1111
     }
   ],
   "preds": [
     {
       "language": "ArmenianEastern",
-      "fitted_mean": 1.5299,
-      "fitted_sd": 0.0719,
-      "fitted_lower": 1.4138,
-      "fitted_upper": 1.7167
+      "fitted_mean": 1.531,
+      "fitted_sd": 0.0708,
+      "fitted_lower": 1.4136,
+      "fitted_upper": 1.712
     },
     {
       "language": "Assamese",
-      "fitted_mean": 1.902,
-      "fitted_sd": 0.0701,
-      "fitted_lower": 1.725,
-      "fitted_upper": 2.0227
+      "fitted_mean": 1.9019,
+      "fitted_sd": 0.0719,
+      "fitted_lower": 1.7153,
+      "fitted_upper": 2.0233
     },
     {
       "language": "Bengali",
       "fitted_mean": 1.8989,
-      "fitted_sd": 0.064,
-      "fitted_lower": 1.7625,
-      "fitted_upper": 2.0441
+      "fitted_sd": 0.066,
+      "fitted_lower": 1.7613,
+      "fitted_upper": 2.0478
     },
     {
       "language": "Hindi",
-      "fitted_mean": 1.7693,
-      "fitted_sd": 0.0698,
-      "fitted_lower": 1.658,
-      "fitted_upper": 1.9515
+      "fitted_mean": 1.7682,
+      "fitted_sd": 0.0708,
+      "fitted_lower": 1.6544,
+      "fitted_upper": 1.9537
     },
     {
       "language": "Urdu",
-      "fitted_mean": 1.9306,
-      "fitted_sd": 0.0589,
-      "fitted_lower": 1.7955,
-      "fitted_upper": 2.0488
+      "fitted_mean": 1.9309,
+      "fitted_sd": 0.0609,
+      "fitted_lower": 1.7893,
+      "fitted_upper": 2.0533
     },
     {
       "language": "Punjabi",
-      "fitted_mean": 1.9745,
+      "fitted_mean": 1.9753,
       "fitted_sd": 0.0629,
-      "fitted_lower": 1.8205,
-      "fitted_upper": 2.0936
+      "fitted_lower": 1.8202,
+      "fitted_upper": 2.0961
     },
     {
       "language": "Marathi",
-      "fitted_mean": 1.941,
-      "fitted_sd": 0.0649,
-      "fitted_lower": 1.7841,
-      "fitted_upper": 2.0704
+      "fitted_mean": 1.9403,
+      "fitted_sd": 0.0651,
+      "fitted_lower": 1.7836,
+      "fitted_upper": 2.0677
     },
     {
       "language": "Nepali",
-      "fitted_mean": 1.806,
-      "fitted_sd": 0.0627,
-      "fitted_lower": 1.6661,
-      "fitted_upper": 1.9379
+      "fitted_mean": 1.8057,
+      "fitted_sd": 0.063,
+      "fitted_lower": 1.664,
+      "fitted_upper": 1.9455
     },
     {
       "language": "Pashto",
-      "fitted_mean": 1.7585,
-      "fitted_sd": 0.0644,
-      "fitted_lower": 1.6381,
-      "fitted_upper": 1.9113
+      "fitted_mean": 1.7573,
+      "fitted_sd": 0.0628,
+      "fitted_lower": 1.6351,
+      "fitted_upper": 1.9095
     },
     {
       "language": "KurdishCJafi",
-      "fitted_mean": 1.8723,
-      "fitted_sd": 0.0616,
-      "fitted_lower": 1.7341,
-      "fitted_upper": 2.0046
+      "fitted_mean": 1.8728,
+      "fitted_sd": 0.0633,
+      "fitted_lower": 1.7329,
+      "fitted_upper": 2.0092
     },
     {
       "language": "PersianTehran",
-      "fitted_mean": 1.8366,
-      "fitted_sd": 0.0619,
-      "fitted_lower": 1.7076,
-      "fitted_upper": 1.9785
+      "fitted_mean": 1.8364,
+      "fitted_sd": 0.0609,
+      "fitted_lower": 1.7116,
+      "fitted_upper": 1.9743
     },
     {
       "language": "Danish",
-      "fitted_mean": 2.1335,
-      "fitted_sd": 0.0604,
-      "fitted_lower": 1.9981,
-      "fitted_upper": 2.2616
+      "fitted_mean": 2.1332,
+      "fitted_sd": 0.06,
+      "fitted_lower": 1.9997,
+      "fitted_upper": 2.2591
     },
     {
       "language": "NorwegianBokmal",
-      "fitted_mean": 2.167,
-      "fitted_sd": 0.0609,
-      "fitted_lower": 2.0249,
-      "fitted_upper": 2.2875
+      "fitted_mean": 2.1688,
+      "fitted_sd": 0.0611,
+      "fitted_lower": 2.0184,
+      "fitted_upper": 2.2896
     },
     {
       "language": "Swedish",
-      "fitted_mean": 2.1315,
-      "fitted_sd": 0.0606,
-      "fitted_lower": 1.9843,
-      "fitted_upper": 2.2476
+      "fitted_mean": 2.1317,
+      "fitted_sd": 0.0611,
+      "fitted_lower": 1.9885,
+      "fitted_upper": 2.251
     },
     {
       "language": "Dutch",
-      "fitted_mean": 2.1168,
-      "fitted_sd": 0.0611,
-      "fitted_lower": 1.9847,
-      "fitted_upper": 2.2476
+      "fitted_mean": 2.1178,
+      "fitted_sd": 0.0617,
+      "fitted_lower": 1.9845,
+      "fitted_upper": 2.2536
     },
     {
       "language": "German",
-      "fitted_mean": 2.0577,
-      "fitted_sd": 0.0625,
-      "fitted_lower": 1.9248,
-      "fitted_upper": 2.197
+      "fitted_mean": 2.0569,
+      "fitted_sd": 0.0603,
+      "fitted_lower": 1.9285,
+      "fitted_upper": 2.1917
     },
     {
       "language": "English",
-      "fitted_mean": 1.9424,
-      "fitted_sd": 0.071,
-      "fitted_lower": 1.818,
-      "fitted_upper": 2.1156
+      "fitted_mean": 1.9415,
+      "fitted_sd": 0.0727,
+      "fitted_lower": 1.8151,
+      "fitted_upper": 2.1242
     },
     {
       "language": "Catalan",
-      "fitted_mean": 2.661,
-      "fitted_sd": 0.0716,
-      "fitted_lower": 2.4807,
-      "fitted_upper": 2.7833
+      "fitted_mean": 2.6599,
+      "fitted_sd": 0.0726,
+      "fitted_lower": 2.4778,
+      "fitted_upper": 2.7788
     },
     {
       "language": "Spanish",
       "fitted_mean": 2.6672,
-      "fitted_sd": 0.0696,
-      "fitted_lower": 2.483,
-      "fitted_upper": 2.7743
+      "fitted_sd": 0.0706,
+      "fitted_lower": 2.4823,
+      "fitted_upper": 2.773
     },
     {
       "language": "Portuguese",
       "fitted_mean": 2.6975,
-      "fitted_sd": 0.0678,
-      "fitted_lower": 2.5575,
-      "fitted_upper": 2.8513
+      "fitted_sd": 0.067,
+      "fitted_lower": 2.5593,
+      "fitted_upper": 2.8499
     },
     {
       "language": "Italian",
-      "fitted_mean": 2.489,
-      "fitted_sd": 0.0616,
-      "fitted_lower": 2.3379,
-      "fitted_upper": 2.5991
+      "fitted_mean": 2.4885,
+      "fitted_sd": 0.0617,
+      "fitted_lower": 2.335,
+      "fitted_upper": 2.5952
     },
     {
       "language": "Romanian",
-      "fitted_mean": 2.443,
-      "fitted_sd": 0.0686,
-      "fitted_lower": 2.2724,
-      "fitted_upper": 2.5558
+      "fitted_mean": 2.4424,
+      "fitted_sd": 0.0713,
+      "fitted_lower": 2.2566,
+      "fitted_upper": 2.5586
     },
     {
       "language": "French",
-      "fitted_mean": 2.3419,
-      "fitted_sd": 0.0632,
-      "fitted_lower": 2.2235,
-      "fitted_upper": 2.4987
+      "fitted_mean": 2.3411,
+      "fitted_sd": 0.0625,
+      "fitted_lower": 2.2203,
+      "fitted_upper": 2.4935
     },
     {
       "language": "Belarusian",
-      "fitted_mean": 2.1162,
-      "fitted_sd": 0.0672,
-      "fitted_lower": 1.9492,
-      "fitted_upper": 2.2305
+      "fitted_mean": 2.1159,
+      "fitted_sd": 0.0667,
+      "fitted_lower": 1.9499,
+      "fitted_upper": 2.2328
     },
     {
       "language": "Russian",
-      "fitted_mean": 1.9826,
-      "fitted_sd": 0.0653,
-      "fitted_lower": 1.8327,
-      "fitted_upper": 2.1167
+      "fitted_mean": 1.9821,
+      "fitted_sd": 0.0651,
+      "fitted_lower": 1.8349,
+      "fitted_upper": 2.1191
     },
     {
       "language": "Ukrainian",
-      "fitted_mean": 1.982,
-      "fitted_sd": 0.0606,
-      "fitted_lower": 1.8497,
-      "fitted_upper": 2.1126
+      "fitted_mean": 1.9834,
+      "fitted_sd": 0.0598,
+      "fitted_lower": 1.8509,
+      "fitted_upper": 2.1142
     },
     {
       "language": "Czech",
-      "fitted_mean": 2.0497,
-      "fitted_sd": 0.0596,
-      "fitted_lower": 1.9177,
-      "fitted_upper": 2.181
+      "fitted_mean": 2.0488,
+      "fitted_sd": 0.0587,
+      "fitted_lower": 1.9198,
+      "fitted_upper": 2.1757
     },
     {
       "language": "Slovak",
-      "fitted_mean": 2.0772,
-      "fitted_sd": 0.0602,
-      "fitted_lower": 1.9313,
-      "fitted_upper": 2.1918
+      "fitted_mean": 2.0771,
+      "fitted_sd": 0.0599,
+      "fitted_lower": 1.933,
+      "fitted_upper": 2.1939
     },
     {
       "language": "Polish",
-      "fitted_mean": 2.0462,
-      "fitted_sd": 0.0615,
-      "fitted_lower": 1.8995,
-      "fitted_upper": 2.1707
+      "fitted_mean": 2.0466,
+      "fitted_sd": 0.059,
+      "fitted_lower": 1.9083,
+      "fitted_upper": 2.1639
     },
     {
       "language": "Bulgarian",
-      "fitted_mean": 1.9863,
-      "fitted_sd": 0.0608,
-      "fitted_lower": 1.8409,
-      "fitted_upper": 2.1025
+      "fitted_mean": 1.9875,
+      "fitted_sd": 0.0609,
+      "fitted_lower": 1.8402,
+      "fitted_upper": 2.1032
     },
     {
       "language": "Macedonian",
-      "fitted_mean": 1.9798,
-      "fitted_sd": 0.063,
-      "fitted_lower": 1.8298,
-      "fitted_upper": 2.1047
+      "fitted_mean": 1.9793,
+      "fitted_sd": 0.0619,
+      "fitted_lower": 1.8336,
+      "fitted_upper": 2.1036
     },
     {
       "language": "SerboCroatian",
-      "fitted_mean": 1.4533,
-      "fitted_sd": 0.103,
-      "fitted_lower": 1.3399,
-      "fitted_upper": 1.7408
+      "fitted_mean": 1.4543,
+      "fitted_sd": 0.1051,
+      "fitted_lower": 1.343,
+      "fitted_upper": 1.7441
     },
     {
       "language": "Slovene",
-      "fitted_mean": 1.8729,
-      "fitted_sd": 0.0631,
-      "fitted_lower": 1.7529,
+      "fitted_mean": 1.872,
+      "fitted_sd": 0.0635,
+      "fitted_lower": 1.7515,
       "fitted_upper": 2.0261
     },
     {
       "language": "Latvian",
-      "fitted_mean": 1.8685,
-      "fitted_sd": 0.0647,
-      "fitted_lower": 1.7375,
-      "fitted_upper": 2.0218
+      "fitted_mean": 1.8676,
+      "fitted_sd": 0.0643,
+      "fitted_lower": 1.7372,
+      "fitted_upper": 2.0188
     },
     {
       "language": "Lithuanian",
-      "fitted_mean": 1.898,
-      "fitted_sd": 0.0627,
-      "fitted_lower": 1.7669,
-      "fitted_upper": 2.0368
+      "fitted_mean": 1.8993,
+      "fitted_sd": 0.0625,
+      "fitted_lower": 1.7674,
+      "fitted_upper": 2.0417
     },
     {
       "language": "Greek",
-      "fitted_mean": 1.4994,
-      "fitted_sd": 0.0827,
-      "fitted_lower": 1.3825,
-      "fitted_upper": 1.7173
+      "fitted_mean": 1.5,
+      "fitted_sd": 0.0839,
+      "fitted_lower": 1.3864,
+      "fitted_upper": 1.7232
     }
   ],
   "scaling_params": {

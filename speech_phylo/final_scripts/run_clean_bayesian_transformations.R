@@ -11,7 +11,6 @@ suppressPackageStartupMessages({
     library(brms)
     library(dplyr)
     library(tibble)
-    library(jsonlite)
 })
 
 # ensure output dir exists
@@ -27,20 +26,17 @@ coordinate_shift <- 10
 
 apply_coord_scaling <- function(vec, method, shift = coordinate_shift) {
     forward_transform <- NULL
-    inverse_pre_transform <- NULL
     description <- NULL
     shift_value <- NA_real_
 
     if (method == "standard") {
         forward_transform <- function(x) x
-        inverse_pre_transform <- function(t) t
         description <- "scale(x)"
     } else if (method == "sqrt_plus_10") {
         if (any(vec + shift <= 0)) {
             stop(sprintf("sqrt_plus_10 requires all values to be greater than -%s", shift))
         }
         forward_transform <- function(x) sqrt(x + shift)
-        inverse_pre_transform <- function(t) (t^2) - shift
         description <- sprintf("scale(sqrt(x + %s))", shift)
         shift_value <- shift
     } else if (method == "log_plus_10") {
@@ -48,7 +44,6 @@ apply_coord_scaling <- function(vec, method, shift = coordinate_shift) {
             stop(sprintf("log_plus_10 requires all values to be greater than -%s", shift))
         }
         forward_transform <- function(x) log(x + shift)
-        inverse_pre_transform <- function(t) exp(t) - shift
         description <- sprintf("scale(log(x + %s))", shift)
         shift_value <- shift
     } else {
@@ -60,30 +55,12 @@ apply_coord_scaling <- function(vec, method, shift = coordinate_shift) {
     center <- as.numeric(attr(scaled, "scaled:center"))
     scale_val <- as.numeric(attr(scaled, "scaled:scale"))
 
-    inverse_transform <- function(z) {
-        if (is.na(scale_val) || is.na(z)) {
-            return(NA_real_)
-        }
-        inverse_pre_transform(center + z * scale_val)
-    }
-
-    original_center <- inverse_pre_transform(center)
-    delta_original_per_sd <- NA_real_
-    if (!is.na(scale_val) && scale_val != 0) {
-        delta_original_per_sd <- inverse_transform(1) - original_center
-        if (isTRUE(all.equal(delta_original_per_sd, 0))) {
-            delta_original_per_sd <- NA_real_
-        }
-    }
-
     return(list(
         values = as.numeric(scaled),
         center = center,
         scale = scale_val,
         description = description,
-        shift = shift_value,
-        original_center = original_center,
-        delta_original_per_sd = delta_original_per_sd
+        shift = shift_value
     ))
 }
 
@@ -152,8 +129,6 @@ for (tree_name in tree_names) {
         x_scale  <- lon_stats$scale
         y_center <- lat_stats$center
         y_scale  <- lat_stats$scale
-        x_delta_original <- lon_stats$delta_original_per_sd
-        y_delta_original <- lat_stats$delta_original_per_sd
 
         model_df <- df_loop
         model_df$log_rate_median <- log(model_df$rate_median)
@@ -206,14 +181,12 @@ for (tree_name in tree_names) {
 
         # Extract variance components from posterior
         phylo_sd_samples <- posterior$sd_language_factor__Intercept
-        phylo_var_samples_raw <- phylo_sd_samples^2
         sigma_samples <- posterior$sigma
         residual_var_samples <- sigma_samples^2
 
-        # CRITICAL: Scale phylogenetic variance by tr(V)/n
-        # For u ~ N(0, σ²_phylo * V), the average variance is σ²_phylo * mean(diag(V))
+        # Phylogenetic variance: tr(V)/n * σ²_phylo
         V_mean_diag <- mean(diag(V))  # = tr(V)/n
-        phylo_var_samples <- phylo_var_samples_raw * V_mean_diag
+        phylo_var_samples <- (phylo_sd_samples^2) * V_mean_diag
 
         coef_df <- as.data.frame(brms::fixef(model, probs = c(0.025, 0.975)))
         colnames(coef_df) <- c("Estimate", "Est.Error", "CI_lower", "CI_upper")
@@ -244,98 +217,7 @@ for (tree_name in tree_names) {
         rmse <- sqrt(mean(residuals^2, na.rm = TRUE))
         mae  <- mean(abs(residuals), na.rm = TRUE)
 
-        loo_result <- tryCatch(
-            brms::loo(model),
-            error = function(e) {
-                warning(sprintf("LOO computation failed for %s (%s): %s", tree_name, coord_method, e$message))
-                NULL
-            }
-        )
-        loo_metrics <- list(
-            available   = !is.null(loo_result),
-            elpd_loo    = NA_real_,
-            elpd_loo_se = NA_real_,
-            p_loo       = NA_real_,
-            looic       = NA_real_,
-            looic_se    = NA_real_
-        )
-        if (!is.null(loo_result)) {
-            loo_metrics$elpd_loo    <- unname(loo_result$estimates["elpd_loo", "Estimate"])
-            loo_metrics$elpd_loo_se <- unname(loo_result$estimates["elpd_loo", "SE"])
-            loo_metrics$p_loo       <- unname(loo_result$estimates["p_loo", "Estimate"])
-            loo_metrics$looic       <- unname(loo_result$estimates["looic", "Estimate"])
-            loo_metrics$looic_se    <- unname(loo_result$estimates["looic", "SE"])
-        }
-
-        waic_result <- tryCatch(
-            brms::waic(model),
-            error = function(e) {
-                warning(sprintf("WAIC computation failed for %s (%s): %s", tree_name, coord_method, e$message))
-                NULL
-            }
-        )
-        waic_metrics <- list(
-            available = !is.null(waic_result),
-            waic      = NA_real_,
-            waic_se   = NA_real_,
-            p_waic    = NA_real_
-        )
-        if (!is.null(waic_result)) {
-            waic_metrics$waic    <- unname(waic_result$estimates["waic", "Estimate"])
-            waic_metrics$waic_se <- unname(waic_result$estimates["waic", "SE"])
-            waic_metrics$p_waic  <- unname(waic_result$estimates["p_waic", "Estimate"])
-        }
-
-        # ─── 5. Collect results into a list (JSON payload) ────────────
-        results_list <- list(
-            metadata             = as.data.frame(df_loop) %>% rownames_to_column("language"),
-            coph                 = coph_df,
-            model_type           = model_type,
-            call                 = formula_str,
-            coordinate_method    = coord_method,
-            coordinate_transform = lon_stats$description,
-            r_squared            = r_squared_summary,
-            goodness_of_fit      = list(
-                rmse = rmse,
-                mae = mae,
-                loo = loo_metrics,
-                waic = waic_metrics
-            ),
-            summary              = coef_df %>% rownames_to_column("term"),
-            preds                = preds_df,
-            scaling_params = list(
-                x_center                  = x_center,
-                x_scale                   = x_scale,
-                x_original_center         = lon_stats$original_center,
-                x_delta_original_per_sd   = x_delta_original,
-                y_center                  = y_center,
-                y_scale                   = y_scale,
-                y_original_center         = lat_stats$original_center,
-                y_delta_original_per_sd   = y_delta_original,
-                log_n_center              = log_n_center,
-                log_n_scale               = log_n_scale,
-                coordinate_method         = coord_method,
-                coordinate_shift          = lon_stats$shift,
-                coordinate_description    = lon_stats$description
-            )
-            # No "unstandardized_coefficients": we only report transformed/normalized effects
-        )
-
-        # ─── 6. Write JSON ────────────────────────────────────────────
-        json_path <- file.path(
-            out_dir,
-            paste0("phylolm_results_", tree_name, "_", coord_method, ".json")
-        )
-        write_json(
-            results_list,
-            path       = json_path,
-            pretty     = TRUE,
-            auto_unbox = TRUE
-        )
-
-        cat("✔️ Results written to", json_path, "\n")
-
-        # ─── 7. Save results as CSV (transformed scale only) ─────────
+        # ─── 5. Save results as CSV (transformed scale only) ─────────
         csv_results <- data.frame(
             model             = model_type,
             tree              = tree_name,
@@ -343,9 +225,6 @@ for (tree_name in tree_names) {
             stringsAsFactors  = FALSE
         )
 
-        # ─── Fixed Effects Variance Decomposition ─────────────────────────
-        # Get design matrix
-        # Get design matrix
         # ─── Fixed Effects Variance Decomposition ─────────────────────────
         # Get design matrix
         X <- model.matrix(~ longitude_norm + latitude_norm + log_n_speakers_norm +
@@ -369,70 +248,156 @@ for (tree_name in tree_names) {
         beta_samples <- as.matrix(posterior[, brms_names[colnames(X)]])
         colnames(beta_samples) <- colnames(X)
 
-        # Total fixed effects variance: Var(Xβ)
-        Xbeta_samples <- tcrossprod(X, beta_samples)  # n_obs x n_samples
-        fixed_var_samples <- apply(Xbeta_samples, 2, var)
+        # ─────────────────────────────────────────────────────────────────────────────
+        # VARIANCE DECOMPOSITION USING SHAPLEY VALUES
+        # ─────────────────────────────────────────────────────────────────────────────
+        # 
+        # Goal: Partition the total variance in the response (log speech rate) into
+        # contributions from each predictor, phylogenetic structure, and residual noise.
+        #
+        # The model decomposes the response as:
+        #   y = Xβ (fixed effects) + u (phylogenetic random effect) + ε (residual)
+        #
+        # We want to know: "How much variance does each predictor explain?"
+        # 
+        # Problem: When predictors are correlated, there's no unique way to assign
+        # variance. The order in which you add predictors matters (Type I vs Type III SS).
+        #
+        # Solution: Shapley values from cooperative game theory provide a fair,
+        # order-independent allocation. Each predictor's contribution is its average
+        # marginal contribution across ALL possible orderings of predictors.
+        #
+        # Interpretation: A predictor with Shapley value φ_j explains φ_j units of
+        # variance on average, accounting for its correlations with other predictors.
+        # ─────────────────────────────────────────────────────────────────────────────
 
-        # Per-term variance contribution
+        # Step 1: Compute total variance explained by fixed effects
+        # Xβ = predicted values from fixed effects only (before adding phylo/residual)
+        Xbeta_samples <- tcrossprod(X, beta_samples)  # predictions for each posterior draw
+        fixed_var_samples <- apply(Xbeta_samples, 2, var)  # variance across languages
+
+        # Step 2: Prepare for Shapley decomposition
+        # We exclude the intercept (it shifts predictions but doesn't explain variance)
         term_names <- colnames(X)
-        term_variances <- list()
+        terms_no_intercept <- setdiff(term_names, "(Intercept)")
+        p <- length(terms_no_intercept)  # number of predictors to decompose
+        S <- ncol(Xbeta_samples)         # number of posterior samples
 
-        for (term in term_names) {
-            Xj <- X[, term, drop = FALSE]
-            beta_j_samples <- beta_samples[, term]
-            Xj_beta_j <- outer(Xj[, 1], beta_j_samples)
-            term_var_samples <- apply(Xj_beta_j, 2, var)
-            term_variances[[term]] <- summarize_posterior(term_var_samples)
+        # Center the design matrix and predictions (variance is computed on centered data)
+        X_terms <- X[, terms_no_intercept, drop = FALSE]
+        X_terms_centered <- scale(X_terms, center = TRUE, scale = FALSE)
+        mu_centered <- sweep(Xbeta_samples, 2, colMeans(Xbeta_samples), "-")
+
+        # Step 3: Precompute orthonormal bases for all 2^p subsets of predictors
+        # For each subset S of predictors, we need to project μ onto span(X_S).
+        # Using QR decomposition gives us an orthonormal basis Q for efficient projection.
+        # We use bitmasks to enumerate all 2^p subsets (mask=0 is empty, mask=2^p-1 is full).
+        Q_list <- vector("list", 2^p)
+        Q_list[[1]] <- NULL  # empty subset has no basis
+
+        for (mask in 1:(2^p - 1)) {
+            # Convert bitmask to column indices (e.g., mask=5=101 → columns 1 and 3)
+            idx <- which(as.logical(intToBits(mask))[1:p])
+            XS  <- X_terms_centered[, idx, drop = FALSE]
+            qrS <- qr(XS)
+            Q_list[[mask + 1]] <- qr.Q(qrS)
         }
 
-        # Total variance = fixed + phylo (scaled) + residual
+        # Step 4: Compute value function v(S) = variance explained by subset S
+        # v(S) = Var(projection of μ onto span(X_S))
+        # This measures how much of the prediction variance is captured by subset S.
+        v <- vector("list", 2^p)
+        v[[1]] <- rep(0, S)  # empty set explains nothing
+
+        for (mask in 1:(2^p - 1)) {
+            Q <- Q_list[[mask + 1]]
+            Qt_mu  <- crossprod(Q, mu_centered)  # project onto orthonormal basis
+            mu_hat <- Q %*% Qt_mu                # reconstruction
+            v[[mask + 1]] <- apply(mu_hat, 2, var)  # variance of projection
+        }
+
+        # Step 5: Compute Shapley values using the classic formula
+        # φ_j = Σ_{S⊆N\{j}} [|S|!(p-|S|-1)!/p!] × [v(S∪{j}) - v(S)]
+        #
+        # This averages the marginal contribution of predictor j over all orderings.
+        # The weight |S|!(p-|S|-1)!/p! is the probability of S being the set of
+        # predictors that come before j in a random ordering.
+        fact <- factorial(0:p)
+        den  <- fact[p + 1]   # p!
+
+        phi <- matrix(0, nrow = S, ncol = p)
+        colnames(phi) <- terms_no_intercept
+
+        for (j in 1:p) {
+            bitj <- bitwShiftL(1L, j - 1L)  # bit for predictor j
+            for (mask in 0:(2^p - 1)) {
+                # Skip if j is already in the subset
+                if (bitwAnd(mask, bitj) != 0L) next
+                k <- sum(as.logical(intToBits(mask))[1:p])  # |S|
+                w <- (fact[k + 1] * fact[p - k]) / den      # Shapley weight
+                # Marginal contribution: v(S ∪ {j}) - v(S)
+                phi[, j] <- phi[, j] + w * (v[[bitwOr(mask, bitj) + 1]] - v[[mask + 1]])
+            }
+        }
+
+        # Sanity check: Shapley values should sum to total fixed variance (efficiency axiom)
+        fixed_from_phi <- rowSums(phi)
+        cat(sprintf("Shapley check: max|sum(phi)-fixed| = %.3e\n",
+                    max(abs(fixed_from_phi - fixed_var_samples))))
+
+        # ─────────────────────────────────────────────────────────────────────────────
+        # COMBINE INTO FULL VARIANCE DECOMPOSITION
+        # ─────────────────────────────────────────────────────────────────────────────
+        # Total variance = Fixed effects + Phylogenetic + Residual
+        #                = Σ_j φ_j       + σ²_phylo      + σ²_resid
+        #
+        # Each component's proportion tells us what fraction of the total variance
+        # is attributable to that source. All proportions sum to 1.
+        # ─────────────────────────────────────────────────────────────────────────────
+
         total_var_samples <- fixed_var_samples + phylo_var_samples + residual_var_samples
         
-        # Proportions
-        prop_fixed_samples <- fixed_var_samples / total_var_samples
+        # Convert Shapley values to proportions of total variance
+        term_prop_samples <- phi / total_var_samples
         prop_phylo_samples <- phylo_var_samples / total_var_samples
         prop_residual_samples <- residual_var_samples / total_var_samples
 
+        # Summarize posterior distributions for each term
+        term_variances <- list()
+        term_proportions <- list()
+        for (j in 1:p) {
+            term_variances[[terms_no_intercept[j]]] <- summarize_posterior(phi[, j])
+            term_proportions[[terms_no_intercept[j]]] <- summarize_posterior(term_prop_samples[, j])
+        }
+
         # Full variance decomposition
         variance_decomposition <- list(
-            # Fixed effects
+            # Fixed effects (total)
             fixed_variance = summarize_posterior(fixed_var_samples),
-            fixed_prop = summarize_posterior(prop_fixed_samples),
-            term_variances = term_variances,
             
-            # Phylogenetic (both raw and effective)
-            phylo_variance_raw = summarize_posterior(phylo_var_samples_raw),
-            phylo_variance = summarize_posterior(phylo_var_samples),  # effective = raw * tr(V)/n
+            # Per-term breakdown
+            term_variances = term_variances,
+            term_proportions = term_proportions,
+            
+            # Phylogenetic: tr(V)/n * σ²_phylo
+            phylo_variance = summarize_posterior(phylo_var_samples),
             phylo_prop = summarize_posterior(prop_phylo_samples),
             
             # Residual
             residual_variance = summarize_posterior(residual_var_samples),
             residual_prop = summarize_posterior(prop_residual_samples),
-            
+        
             # Total
             total_variance = summarize_posterior(total_var_samples),
             
-            # Phylogenetic signal (traditional: phylo / (phylo + residual), using scaled variances)
-            phylo_signal = summarize_posterior(phylo_var_samples / (phylo_var_samples + residual_var_samples)),
-            
             # Covariance matrix info
-            V_trace = sum(diag(V)),
             V_trace_normalized = V_mean_diag,  # tr(V)/n
-            V_mean_diag = V_mean_diag,
-            V_mean_offdiag = mean(V[lower.tri(V)]),
             n_taxa = nrow(V)
         )
 
-        cat("\nVariance Decomposition (with phylo scaled by tr(V)/n):\n")
+        cat("\nVariance Decomposition:\n")
         cat(sprintf("  V scaling factor (tr(V)/n): %.4f\n", V_mean_diag))
-        cat(sprintf("  Fixed effects (Xβ):    %.4f (%.1f%%, 95%% CI: %.1f%% – %.1f%%)\n",
-            variance_decomposition$fixed_variance$mean,
-            variance_decomposition$fixed_prop$mean * 100,
-            variance_decomposition$fixed_prop$q2.5 * 100,
-            variance_decomposition$fixed_prop$q97.5 * 100))
-        cat(sprintf("  Phylogenetic (raw σ²): %.4f\n",
-            variance_decomposition$phylo_variance_raw$mean))
-        cat(sprintf("  Phylogenetic (eff.):   %.4f (%.1f%%, 95%% CI: %.1f%% – %.1f%%)\n",
+        cat(sprintf("  Phylogenetic:          %.4f (%.1f%%, 95%% CI: %.1f%% – %.1f%%)\n",
             variance_decomposition$phylo_variance$mean,
             variance_decomposition$phylo_prop$mean * 100,
             variance_decomposition$phylo_prop$q2.5 * 100,
@@ -442,13 +407,13 @@ for (tree_name in tree_names) {
             variance_decomposition$residual_prop$mean * 100,
             variance_decomposition$residual_prop$q2.5 * 100,
             variance_decomposition$residual_prop$q97.5 * 100))
-        cat(sprintf("  Phylo signal (λ):      %.4f (95%% CI: %.4f – %.4f)\n",
-            variance_decomposition$phylo_signal$mean,
-            variance_decomposition$phylo_signal$q2.5,
-            variance_decomposition$phylo_signal$q97.5))
-        cat("\n  Per-term variances:\n")
-        for (term in names(term_variances)) {
-            cat(sprintf("    %s: %.4f\n", term, term_variances[[term]]$mean))
+        cat("\n  Per-term proportions (sum with phylo + residual = 1):\n")
+        for (term in names(term_proportions)) {
+            cat(sprintf("    %s: %.4f (%.1f%%, 95%% CI: %.1f%% – %.1f%%)\n", term, 
+                term_variances[[term]]$mean,
+                term_proportions[[term]]$mean * 100,
+                term_proportions[[term]]$q2.5 * 100,
+                term_proportions[[term]]$q97.5 * 100))
         }
 
         # Add coefficient information (normalized / transformed scale)
@@ -463,54 +428,20 @@ for (tree_name in tree_names) {
             csv_results[paste0("ci_upper_", term_name_clean)]  <- coef_df[i, "CI_upper"]
         }
 
-        # Add all scaling parameters (for later interpretation / contrasts)
-        csv_results$x_scale_sd               <- x_scale
-        csv_results$y_scale_sd               <- y_scale
-        csv_results$x_center                 <- x_center
-        csv_results$y_center                 <- y_center
-        csv_results$x_original_center        <- lon_stats$original_center
-        csv_results$y_original_center        <- lat_stats$original_center
-        csv_results$x_delta_original_per_sd  <- x_delta_original
-        csv_results$y_delta_original_per_sd  <- y_delta_original
-        csv_results$log_n_scale_sd           <- log_n_scale
-        csv_results$log_n_center             <- log_n_center
-        csv_results$coordinate_method_desc   <- lon_stats$description
-        csv_results$coordinate_shift         <- lon_stats$shift
-        csv_results$r2_mean                  <- r_squared_summary$mean
-        csv_results$r2_sd                    <- r_squared_summary$sd
-        csv_results$r2_q2_5                  <- r_squared_summary$q2.5
-        csv_results$r2_q97_5                 <- r_squared_summary$q97.5
-        csv_results$rmse                     <- rmse
-        csv_results$mae                      <- mae
-        csv_results$elpd_loo                 <- loo_metrics$elpd_loo
-        csv_results$elpd_loo_se              <- loo_metrics$elpd_loo_se
-        csv_results$p_loo                    <- loo_metrics$p_loo
-        csv_results$looic                    <- loo_metrics$looic
-        csv_results$looic_se                 <- loo_metrics$looic_se
-        csv_results$waic                     <- waic_metrics$waic
-        csv_results$waic_se                  <- waic_metrics$waic_se
-        csv_results$p_waic                   <- waic_metrics$p_waic
-
         ## Variance decomposition
-        # Fixed effects variance
-        csv_results$fixed_var_mean       <- variance_decomposition$fixed_variance$mean
-        csv_results$fixed_var_sd         <- variance_decomposition$fixed_variance$sd
-        csv_results$fixed_var_q2_5       <- variance_decomposition$fixed_variance$q2.5
-        csv_results$fixed_var_q97_5      <- variance_decomposition$fixed_variance$q97.5
-        csv_results$fixed_prop_mean      <- variance_decomposition$fixed_prop$mean
-        csv_results$fixed_prop_q2_5      <- variance_decomposition$fixed_prop$q2.5
-        csv_results$fixed_prop_q97_5     <- variance_decomposition$fixed_prop$q97.5
-
-        # Per-term variances
+        # Per-term variances and proportions
         for (term in names(term_variances)) {
             term_clean <- gsub(":", "_", term)
             term_clean <- gsub("\\(|\\)", "", term_clean)
             csv_results[[paste0("var_", term_clean)]] <- term_variances[[term]]$mean
+            csv_results[[paste0("prop_", term_clean)]] <- term_proportions[[term]]$mean
+            # save proportions too
+            csv_results[[paste0("prop_", term_clean, "_q2_5")]]  <- term_proportions[[term]]$q2.5
+            csv_results[[paste0("prop_", term_clean, "_q97_5")]] <- term_proportions[[term]]$q97.5
         }
 
-        # Phylogenetic variance (raw and effective)
-        csv_results$phylo_var_raw_mean   <- variance_decomposition$phylo_variance_raw$mean
-        csv_results$phylo_var_eff_mean   <- variance_decomposition$phylo_variance$mean
+        # Phylogenetic variance
+        csv_results$phylo_var_mean       <- variance_decomposition$phylo_variance$mean
         csv_results$phylo_prop_mean      <- variance_decomposition$phylo_prop$mean
         csv_results$phylo_prop_q2_5      <- variance_decomposition$phylo_prop$q2.5
         csv_results$phylo_prop_q97_5     <- variance_decomposition$phylo_prop$q97.5
@@ -521,14 +452,8 @@ for (tree_name in tree_names) {
         csv_results$residual_prop_q2_5   <- variance_decomposition$residual_prop$q2.5
         csv_results$residual_prop_q97_5  <- variance_decomposition$residual_prop$q97.5
         
-        # Phylogenetic signal
-        csv_results$phylo_signal_mean    <- variance_decomposition$phylo_signal$mean
-        csv_results$phylo_signal_q2_5    <- variance_decomposition$phylo_signal$q2.5
-        csv_results$phylo_signal_q97_5   <- variance_decomposition$phylo_signal$q97.5
-        
         # V matrix info
         csv_results$V_trace_norm         <- variance_decomposition$V_trace_normalized
-        csv_results$V_mean_diag          <- variance_decomposition$V_mean_diag
 
         # Save CSV
         csv_path <- file.path(

@@ -163,38 +163,97 @@ V <- V_raw[language_levels, language_levels]
 # ─── Fit model ─────────────────────────────────────────────────────
 formula_obj <- get_formula(int_level)
 
-priors <- c(
-    set_prior("normal(0, 0.3)", class = "b"),
-    set_prior("student_t(5, -6, 0.5)", class = "Intercept"),
-    set_prior("exponential(2)", class = "sigma"),
-    set_prior("exponential(2)", class = "sd", group = "language_factor")
-)
+# priors <- c(
+#     set_prior("normal(0, 0.3)", class = "b"),
+#     set_prior("student_t(3, -6, 1)", class = "Intercept"),
+#     set_prior("exponential(1)", class = "sigma"),
+#     set_prior("exponential(1)", class = "sd", group = "language_factor")
+# )
 
 brm_args <- list(
     formula = formula_obj,
     data = model_df,
     family = gaussian(),
-    prior = priors,
+    # prior = priors,
     refresh = 500,
     chains = 4,
-    iter = 6000,
-    warmup = 2000,
+    iter = 20000,
+    warmup = 10000,
     seed = 20231103,
     cores = 4,
-    control = list(adapt_delta = 0.99, max_treedepth = 15),
+    control = list(adapt_delta = 0.9999, max_treedepth = 15),
     data2 = list(V = V),
-    sample_prior = "yes"
+    sample_prior = "no",
+    thin = 10
 )
 
 model <- do.call(brm, brm_args)
 
 # ─── Diagnostics ───────────────────────────────────────────────────
-n_div <- sum(nuts_params(model, pars = "divergent__")$Value)
-cat(sprintf("Divergent transitions: %d (%.2f%%)\n", n_div, 100 * n_div / (4 * 4000)))
+cat("\n======================================================================\n")
+cat("                    MCMC DIAGNOSTICS\n")
+cat("======================================================================\n")
 
-summ <- summary(model)$fixed
-cat(sprintf("Max Rhat: %.3f | Min Bulk ESS: %.0f | Min Tail ESS: %.0f\n",
-            max(summ$Rhat), min(summ$Bulk_ESS), min(summ$Tail_ESS)))
+# Divergent transitions
+np <- nuts_params(model)
+n_div <- sum(np[np$Parameter == "divergent__", "Value"])
+n_samples <- (brm_args$iter - brm_args$warmup) * brm_args$chains
+cat(sprintf("Divergent transitions: %d / %d (%.2f%%)\n", n_div, n_samples, 100 * n_div / n_samples))
+if (n_div > 0) {
+    cat("  [!] Divergences detected - consider increasing adapt_delta\n")
+}
+
+# Tree depth
+max_td <- sum(np[np$Parameter == "treedepth__", "Value"] >= brm_args$control$max_treedepth)
+cat(sprintf("Max treedepth reached: %d times (max=%d)\n", max_td, brm_args$control$max_treedepth))
+
+# BFMI (Bayesian Fraction of Missing Information)  
+# Low BFMI (<0.2) indicates poor exploration
+energy <- np[np$Parameter == "energy__", "Value"]
+if (length(energy) > 0) {
+    chain_ids <- np[np$Parameter == "energy__", "Chain"]
+    chains <- unique(chain_ids)
+    bfmi_vals <- sapply(chains, function(ch) {
+        e <- energy[chain_ids == ch]
+        var(diff(e)) / var(e)
+    })
+    cat(sprintf("BFMI per chain: %s\n", paste(sprintf("%.3f", bfmi_vals), collapse=", ")))
+    if (any(bfmi_vals < 0.2)) {
+        cat("  [!] Low BFMI (<0.2) detected - may indicate poor posterior exploration\n")
+    }
+}
+
+# Rhat and ESS for ALL parameters (fixed + random + sigma)
+summ_fixed <- summary(model)$fixed
+summ_spec <- summary(model)$spec_pars
+summ_random <- tryCatch(summary(model)$random$language_factor, error = function(e) NULL)
+
+all_rhat <- c(summ_fixed$Rhat, summ_spec$Rhat)
+all_bulk_ess <- c(summ_fixed$Bulk_ESS, summ_spec$Bulk_ESS)
+all_tail_ess <- c(summ_fixed$Tail_ESS, summ_spec$Tail_ESS)
+
+if (!is.null(summ_random)) {
+    all_rhat <- c(all_rhat, summ_random$Rhat)
+    all_bulk_ess <- c(all_bulk_ess, summ_random$Bulk_ESS)
+    all_tail_ess <- c(all_tail_ess, summ_random$Tail_ESS)
+}
+
+cat("\n--- Convergence (all parameters) ---\n")
+cat(sprintf("  Max Rhat:      %.4f %s\n", max(all_rhat, na.rm=TRUE), 
+            ifelse(max(all_rhat, na.rm=TRUE) < 1.01, "[OK]", "[!] > 1.01")))
+cat(sprintf("  Min Bulk ESS:  %.0f %s\n", min(all_bulk_ess, na.rm=TRUE),
+            ifelse(min(all_bulk_ess, na.rm=TRUE) >= 400, "[OK]", "[!] < 400")))
+cat(sprintf("  Min Tail ESS:  %.0f %s\n", min(all_tail_ess, na.rm=TRUE),
+            ifelse(min(all_tail_ess, na.rm=TRUE) >= 400, "[OK]", "[!] < 400")))
+
+cat("\n--- Fixed effects summary ---\n")
+cat(sprintf("  Max Rhat:      %.4f\n", max(summ_fixed$Rhat)))
+cat(sprintf("  Min Bulk ESS:  %.0f\n", min(summ_fixed$Bulk_ESS)))
+cat(sprintf("  Min Tail ESS:  %.0f\n", min(summ_fixed$Tail_ESS)))
+
+# Store for csv_results
+summ <- summ_fixed
+cat("======================================================================\n\n")
 
 # ─── Extract posterior ─────────────────────────────────────────────
 posterior <- as.data.frame(model)
@@ -376,6 +435,12 @@ csv_results <- data.frame(
     coordinate_method = coord_method,
     stringsAsFactors = FALSE
 )
+
+# Add MCMC diagnostics (ALL parameters, not just fixed)
+csv_results$n_divergent <- n_div
+csv_results$max_rhat <- max(all_rhat, na.rm = TRUE)
+csv_results$min_bulk_ess <- min(all_bulk_ess, na.rm = TRUE)
+csv_results$min_tail_ess <- min(all_tail_ess, na.rm = TRUE)
 
 for (k in seq_len(nrow(coef_df))) {
     term_name <- rownames(coef_df)[k]

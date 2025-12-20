@@ -150,38 +150,95 @@ for (tree_name in tree_names) {
             family = gaussian(),
             refresh = 0,
             chains = 4,
-            iter = 8000,
-            warmup = 3000,
+            iter = 20000,
+            warmup = 10000,
             seed = 20231103,
             cores = max(1L, min(4L, parallel::detectCores())),
-            control = list(adapt_delta = 0.999, max_treedepth = 15),
-            data2 = list(V = V)
+            control = list(adapt_delta = 0.9999, max_treedepth = 15),
+            data2 = list(V = V),
+            thin=10
         )
 
         ##### PRIORS AND MODEL FITTING #####
         # OPTIMIZED: Tighter, more informative priors for better regularization
-        priors <- c(
-            set_prior("normal(0, 0.2)", class = "b"),
-            set_prior("student_t(5, -6, 0.5)", class = "Intercept"),  # More informative for log-rate
-            set_prior("exponential(2)", class = "sigma"),
-            set_prior("exponential(2)", class = "sd", group = "language_factor"),
-            # Spline smoothness parameter - tighter for stability
-            set_prior("student_t(5, 0, 0.5)", class = "sds")
-        )
-        brm_args$prior <- priors
-        brm_args$sample_prior <- "yes"
+        # priors <- c(
+        #     set_prior("normal(0, 0.2)", class = "b"),
+        #     set_prior("student_t(5, -6, 0.5)", class = "Intercept"),  # More informative for log-rate
+        #     set_prior("exponential(2)", class = "sigma"),
+        #     set_prior("exponential(2)", class = "sd", group = "language_factor"),
+        #     # Spline smoothness parameter - tighter for stability
+        #     set_prior("student_t(5, 0, 0.5)", class = "sds")
+        # )
+        # brm_args$prior <- priors
+        # brm_args$sample_prior <- "yes"
 
         cat(sprintf("\nFitting phylogenetic spatial regression (%s)...\n", coord_method))
         model <- do.call(brm, brm_args)
         model_type <- "brms_phylo"
-        # Add this after model <- do.call(brm, brm_args)
-        n_div <- sum(nuts_params(model, pars = "divergent__")$Value)
-        cat(sprintf("Divergent transitions: %d (%.2f%%)\n", n_div, 100 * n_div / (4 * 3000)))
-
-        # Check worst Rhat and ESS
-        summ <- summary(model)$fixed
-        cat(sprintf("Max Rhat: %.3f | Min Bulk ESS: %.0f | Min Tail ESS: %.0f\n",
-                    max(summ$Rhat), min(summ$Bulk_ESS), min(summ$Tail_ESS)))
+        
+        # ─── Comprehensive Diagnostics ───────────────────────────────────
+        cat("\n══════════════════════════════════════════════════════════════════\n")
+        cat("                    MCMC DIAGNOSTICS\n")
+        cat("══════════════════════════════════════════════════════════════════\n")
+        
+        # Divergent transitions
+        np <- nuts_params(model)
+        n_div <- sum(np[np$Parameter == "divergent__", "Value"])
+        n_samples <- (brm_args$iter - brm_args$warmup) * brm_args$chains
+        cat(sprintf("Divergent transitions: %d / %d (%.2f%%)\n", n_div, n_samples, 100 * n_div / n_samples))
+        if (n_div > 0) {
+            cat("  ⚠️  Divergences detected - consider increasing adapt_delta\n")
+        }
+        
+        # Tree depth
+        max_td <- sum(np[np$Parameter == "treedepth__", "Value"] >= brm_args$control$max_treedepth)
+        cat(sprintf("Max treedepth reached: %d times (max=%d)\n", max_td, brm_args$control$max_treedepth))
+        
+        # BFMI (Bayesian Fraction of Missing Information)
+        energy <- np[np$Parameter == "energy__", "Value"]
+        if (length(energy) > 0) {
+            chain_ids <- np[np$Parameter == "energy__", "Chain"]
+            chains <- unique(chain_ids)
+            bfmi_vals <- sapply(chains, function(ch) {
+                e <- energy[chain_ids == ch]
+                var(diff(e)) / var(e)
+            })
+            cat(sprintf("BFMI per chain: %s\n", paste(sprintf("%.3f", bfmi_vals), collapse=", ")))
+            if (any(bfmi_vals < 0.2)) {
+                cat("  ⚠️  Low BFMI (<0.2) detected - may indicate poor posterior exploration\n")
+            }
+        }
+        
+        # Rhat and ESS for ALL parameters (fixed + random + sigma + sds)
+        summ_fixed <- summary(model)$fixed
+        summ_spec <- summary(model)$spec_pars
+        summ_random <- tryCatch(summary(model)$random$language_factor, error = function(e) NULL)
+        
+        all_rhat <- c(summ_fixed$Rhat, summ_spec$Rhat)
+        all_bulk_ess <- c(summ_fixed$Bulk_ESS, summ_spec$Bulk_ESS)
+        all_tail_ess <- c(summ_fixed$Tail_ESS, summ_spec$Tail_ESS)
+        
+        if (!is.null(summ_random)) {
+            all_rhat <- c(all_rhat, summ_random$Rhat)
+            all_bulk_ess <- c(all_bulk_ess, summ_random$Bulk_ESS)
+            all_tail_ess <- c(all_tail_ess, summ_random$Tail_ESS)
+        }
+        
+        cat("\n─── Convergence (all parameters) ───\n")
+        cat(sprintf("  Max Rhat:      %.4f %s\n", max(all_rhat, na.rm=TRUE), 
+                    ifelse(max(all_rhat, na.rm=TRUE) < 1.01, "✓", "⚠️ > 1.01")))
+        cat(sprintf("  Min Bulk ESS:  %.0f %s\n", min(all_bulk_ess, na.rm=TRUE),
+                    ifelse(min(all_bulk_ess, na.rm=TRUE) >= 400, "✓", "⚠️ < 400")))
+        cat(sprintf("  Min Tail ESS:  %.0f %s\n", min(all_tail_ess, na.rm=TRUE),
+                    ifelse(min(all_tail_ess, na.rm=TRUE) >= 400, "✓", "⚠️ < 400")))
+        
+        cat("\n─── Fixed effects summary ───\n")
+        cat(sprintf("  Max Rhat:      %.4f\n", max(summ_fixed$Rhat)))
+        cat(sprintf("  Min Bulk ESS:  %.0f\n", min(summ_fixed$Bulk_ESS)))
+        cat(sprintf("  Min Tail ESS:  %.0f\n", min(summ_fixed$Tail_ESS)))
+        
+        summ <- summ_fixed
+        cat("══════════════════════════════════════════════════════════════════\n\n")
                     
         # Extract posterior samples
         posterior <- as.data.frame(model)
@@ -239,7 +296,7 @@ for (tree_name in tree_names) {
         # Create a grid over the normalized longitude/latitude space
         cat("\nExtracting spline surface for visualization...\n")
         
-        n_grid <- 30  # Grid resolution
+        n_grid <- 900  # Grid resolution
         lon_range <- range(model_df$longitude_norm)
         lat_range <- range(model_df$latitude_norm)
         
@@ -303,6 +360,12 @@ for (tree_name in tree_names) {
             coordinate_method = coord_method,
             stringsAsFactors  = FALSE
         )
+        
+        # Add MCMC diagnostics to csv_results (ALL parameters, not just fixed)
+        csv_results$n_divergent <- n_div
+        csv_results$max_rhat <- max(all_rhat, na.rm = TRUE)
+        csv_results$min_bulk_ess <- min(all_bulk_ess, na.rm = TRUE)
+        csv_results$min_tail_ess <- min(all_tail_ess, na.rm = TRUE)
 
         # ─── FIXED: Variance Decomposition via posterior_linpred ─────────────
         # 

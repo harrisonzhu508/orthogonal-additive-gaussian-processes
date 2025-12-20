@@ -345,6 +345,9 @@ def plot_variance_violin(
     if samples.empty:
         return
     
+    # Load regression results to get MCMC diagnostics
+    reg_results = load_regression_results(csv_dir, model_type, coord_method)
+    
     samples["tree_display"] = samples["tree"].map(tree_labels).fillna(samples["tree"])
     trees = list(samples["tree_display"].unique())
     # Ensure Speech is always on top (matplotlib draws bottom-to-top, so reverse)
@@ -434,6 +437,20 @@ def plot_variance_violin(
     ]
     ax.legend(handles=legend_elements, loc="upper right", fontsize=10,
               frameon=False, handlelength=1.2)
+    
+    # Add MCMC diagnostics subtitle if available
+    if not reg_results.empty and 'min_bulk_ess' in reg_results.columns:
+        diag_parts = []
+        for tree_name in samples["tree"].unique():
+            tree_reg = reg_results[reg_results["tree"] == tree_name]
+            if not tree_reg.empty:
+                tree_disp = tree_labels.get(tree_name, tree_name)
+                n_div = int(tree_reg["n_divergent"].iloc[0]) if "n_divergent" in tree_reg.columns else 0
+                rhat = tree_reg["max_rhat"].iloc[0] if "max_rhat" in tree_reg.columns else 1.0
+                ess = int(tree_reg["min_bulk_ess"].iloc[0])
+                diag_parts.append(f"{tree_disp}: ESS={ess}, R̂={rhat:.2f}, div={n_div}")
+        if diag_parts:
+            fig.suptitle(" | ".join(diag_parts), fontsize=8, color="#666666", y=0.02)
     
     plt.tight_layout()
     
@@ -622,8 +639,18 @@ def plot_spline_surface(
     output_dir: str = "speech_phylo/final_figuresv2",
     save: bool = False,
     show_observations: bool = True,
+    show_basemap: bool = True,
+    geojson_path: str = "speech_phylo/dataset.geojson",
 ) -> None:
-    """Plot the spline surface for a given tree with optional observation points."""
+    """Plot the spline surface for a given tree with language polygon masking.
+    
+    Uses dataset.geojson for language boundaries, showing the spline effect
+    only within Indo-European language regions.
+    """
+    import geopandas as gpd
+    from shapely.geometry import box, Point
+    from shapely.prepared import prep
+    
     if tree_labels is None:
         tree_labels = TREE_LABELS
     
@@ -650,11 +677,93 @@ def plot_spline_surface(
         print(f"Cannot reshape data. Expected {n_grid}x{n_grid} grid, got {len(lon)} points.")
         return
     
-    fig, ax = plt.subplots(figsize=(12, 8))
+    fig, ax = plt.subplots(figsize=(16, 10))
     
-    vmax = max(abs(z.min()), abs(z.max()))
-    contour = ax.contourf(lon_grid, lat_grid, z_grid, levels=20,
-                          cmap="RdBu_r", vmin=-vmax, vmax=vmax)
+    # Define ROI bounds from data with padding (Europe + India region)
+    PAD_DEG = 15
+    ROI_MINX = lon.min() - PAD_DEG
+    ROI_MAXX = lon.max() + PAD_DEG
+    ROI_MINY = lat.min() - PAD_DEG
+    ROI_MAXY = lat.max() + PAD_DEG
+    ROI_BOX = box(ROI_MINX, ROI_MINY, ROI_MAXX, ROI_MAXY)
+    
+    # Load language GeoJSON for masking
+    gdf_language = None
+    language_union = None
+    if os.path.exists(geojson_path):
+        try:
+            gdf_language = gpd.read_file(geojson_path)
+            
+            # Rename languages to match metadata
+            renaming = {
+                "Punjabi (Panjabi)": "Punjabi",
+                "Norwegian": "NorwegianBokmal",
+                "Persian (Farsi)": "PersianTehran",
+                "Belarusian (Belorussian)": "Belarusian",
+                "Kurdish": "KurdishCJafiri",
+                "Netherlandic": "Dutch",
+                "Serbian / Croatian / Bosnian": "SerboCroatian",
+            }
+            gdf_language["name"] = gdf_language["name"].replace(renaming)
+            
+            # Load metadata to filter languages
+            metadata_path = os.path.join(csv_dir, f"metadata_{tree_name}_with_inventory_delta.csv")
+            if os.path.exists(metadata_path):
+                obs_df = pd.read_csv(metadata_path)
+                valid_langs = set(obs_df.get("language", []))
+                gdf_language = gdf_language[gdf_language["name"].isin(valid_langs)].copy()
+            
+            # Clip to ROI
+            gdf_language = gpd.clip(gdf_language, ROI_BOX)
+            
+            if not gdf_language.empty:
+                language_union = gdf_language.unary_union
+        except Exception as e:
+            print(f"Warning: Could not load language GeoJSON: {e}")
+    
+    # Load basemap
+    if show_basemap:
+        try:
+            world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+            land_union = world.unary_union
+            land_gdf = gpd.GeoDataFrame(geometry=[land_union], crs=world.crs)
+            land_roi = gpd.clip(land_gdf, ROI_BOX)
+            
+            # Ocean background
+            ax.set_facecolor("#d5e9ff")
+            
+            # Land (white)
+            land_roi.plot(ax=ax, color='white', edgecolor='none', zorder=0)
+            
+            # Country boundaries (light gray)
+            land_roi.boundary.plot(ax=ax, color='lightgray', linewidth=0.6, zorder=0.5)
+        except Exception as e:
+            print(f"Warning: Could not load basemap: {e}")
+    
+    # Create masked spline surface (only within language polygons)
+    z_masked = z_grid.copy()
+    if language_union is not None:
+        language_prep = prep(language_union)
+        grid_points = np.column_stack([lon_grid.ravel(), lat_grid.ravel()])
+        
+        # Mask points outside language polygons
+        in_language_mask = np.array([
+            language_prep.contains(Point(p[0], p[1])) for p in grid_points
+        ]).reshape(lon_grid.shape)
+        
+        z_masked = np.where(in_language_mask, z_grid, np.nan)
+    
+    # Spline surface with pcolormesh (smoother for masked data)
+    vmax = max(abs(np.nanmin(z_masked)), abs(np.nanmax(z_masked)))
+    if np.isnan(vmax) or vmax == 0:
+        vmax = max(abs(z.min()), abs(z.max()))
+    
+    mesh = ax.pcolormesh(lon_grid, lat_grid, z_masked, shading="auto",
+                         cmap="RdBu_r", vmin=-vmax, vmax=vmax, zorder=1)
+    
+    # Language polygon boundaries (white outlines)
+    if gdf_language is not None and not gdf_language.empty:
+        gdf_language.boundary.plot(ax=ax, color='white', linewidth=0.8, zorder=2)
     
     # Add observation points
     if show_observations:
@@ -663,16 +772,39 @@ def plot_spline_surface(
             obs_df = pd.read_csv(metadata_path)
             if "longitude" in obs_df.columns and "latitude" in obs_df.columns:
                 ax.scatter(obs_df["longitude"], obs_df["latitude"], 
-                          c="white", s=40, edgecolor="black", linewidth=0.8,
-                          alpha=0.8, zorder=5, label="Observations")
+                          c="white", s=60, edgecolor="black", linewidth=0.7,
+                          alpha=1.0, zorder=10, label="Language locations")
     
-    cbar = plt.colorbar(contour, ax=ax)
-    cbar.set_label("Spline Effect (log scale)", fontsize=12)
+    # Set axis limits
+    ax.set_xlim(ROI_MINX, ROI_MAXX)
+    ax.set_ylim(ROI_MINY, ROI_MAXY)
     
-    ax.set_xlabel("Longitude", fontsize=14)
-    ax.set_ylabel("Latitude", fontsize=14)
-    ax.set_title(f"Spatial Spline Effect: {tree_display}\n({config['display_name']})",
-                 fontsize=14, fontweight="bold")
+    # Colorbar
+    cbar = plt.colorbar(mesh, ax=ax, pad=0.02, shrink=0.9)
+    cbar.set_label("Spline Effect (log scale)", fontsize=18, fontweight="bold")
+    cbar.ax.tick_params(labelsize=14)
+    
+    # Load regression results for MCMC diagnostics
+    reg_results = load_regression_results(csv_dir, model_type, coord_method)
+    
+    # Build diagnostics subtitle
+    diag_subtitle = ""
+    if not reg_results.empty and 'min_bulk_ess' in reg_results.columns:
+        tree_reg = reg_results[reg_results["tree"] == tree_name]
+        if not tree_reg.empty:
+            n_div = int(tree_reg["n_divergent"].iloc[0]) if "n_divergent" in tree_reg.columns else 0
+            rhat = tree_reg["max_rhat"].iloc[0] if "max_rhat" in tree_reg.columns else 1.0
+            ess = int(tree_reg["min_bulk_ess"].iloc[0])
+            diag_subtitle = f"ESS={ess}, R̂={rhat:.2f}, divergences={n_div}"
+    
+    # Professional styling
+    ax.set_xlabel("Longitude", fontsize=18)
+    ax.set_ylabel("Latitude", fontsize=18)
+    ax.tick_params(axis="both", labelsize=14)
+    ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.6)
+    ax.set_title(f"Spatial Spline Effect: {tree_display}\n({config['display_name']})" + 
+                 (f"\n{diag_subtitle}" if diag_subtitle else ""),
+                 fontsize=16, fontweight="bold")
     
     plt.tight_layout()
     
@@ -1075,7 +1207,7 @@ if __name__ == "__main__":
     
     # Create combined PDF with all figures
     create_combined_pdf_simple(
-        output_dir="speech_phylo/final_figuresv2",
+        output_dir="speech_phylo/final_spline_figuresv2",
         output_filename="all_spline_figures_combined.pdf",
         csv_dir="speech_phylo/final_phyloregression_results"
     )

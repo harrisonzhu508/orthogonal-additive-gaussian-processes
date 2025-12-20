@@ -619,6 +619,21 @@ def plot_variance_violin(
     ax.legend(handles=legend_elements, loc="upper right", fontsize=10,
               frameon=False, handlelength=1.2)
     
+    # Add MCMC diagnostics subtitle if available
+    reg_results = load_regression_results(csv_dir, model_type, coord_method)
+    if not reg_results.empty and 'min_bulk_ess' in reg_results.columns:
+        diag_parts = []
+        for tree_name in samples["tree"].unique():
+            tree_reg = reg_results[reg_results["tree"] == tree_name]
+            if not tree_reg.empty:
+                tree_disp = tree_labels.get(tree_name, tree_name)
+                n_div = int(tree_reg["n_divergent"].iloc[0]) if "n_divergent" in tree_reg.columns else 0
+                rhat = tree_reg["max_rhat"].iloc[0] if "max_rhat" in tree_reg.columns else 1.0
+                ess = int(tree_reg["min_bulk_ess"].iloc[0])
+                diag_parts.append(f"{tree_disp}: ESS={ess}, R̂={rhat:.2f}, div={n_div}")
+        if diag_parts:
+            fig.suptitle(" | ".join(diag_parts), fontsize=8, color="#666666", y=0.02)
+    
     plt.tight_layout()
     
     if save:

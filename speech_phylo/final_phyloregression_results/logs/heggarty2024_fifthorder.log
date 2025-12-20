@@ -1,0 +1,275 @@
+═══════════════════════════════════════════════════════════════════
+Running: tree=heggarty2024, level=fifthorder
+═══════════════════════════════════════════════════════════════════
+
+Warning message:
+package ‘Rcpp’ was built under R version 4.4.3 
+Loading required package: foreach
+Loading required package: iterators
+Loading required package: parallel
+Warning message:
+package ‘iterators’ was built under R version 4.4.3 
+Compiling Stan program...
+Start sampling
+
+SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
+
+SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
+
+SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 3).
+
+SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 4).
+Chain 1: 
+Chain 1: Gradient evaluation took 2.8e-05 seconds
+Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.28 seconds.
+Chain 1: Adjust your expectations accordingly!
+Chain 1: 
+Chain 1: 
+Chain 1: Iteration:    1 / 6000 [  0%]  (Warmup)
+Chain 2: 
+Chain 2: Gradient evaluation took 2.7e-05 seconds
+Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.27 seconds.
+Chain 2: Adjust your expectations accordingly!
+Chain 2: 
+Chain 2: 
+Chain 2: Iteration:    1 / 6000 [  0%]  (Warmup)
+Chain 4: 
+Chain 4: Gradient evaluation took 3e-05 seconds
+Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.3 seconds.
+Chain 4: Adjust your expectations accordingly!
+Chain 4: 
+Chain 4: 
+Chain 4: Iteration:    1 / 6000 [  0%]  (Warmup)
+Chain 3: 
+Chain 3: Gradient evaluation took 9.1e-05 seconds
+Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 0.91 seconds.
+Chain 3: Adjust your expectations accordingly!
+Chain 3: 
+Chain 3: 
+Chain 3: Iteration:    1 / 6000 [  0%]  (Warmup)
+Chain 2: Iteration:  500 / 6000 [  8%]  (Warmup)
+Chain 4: Iteration:  500 / 6000 [  8%]  (Warmup)
+Chain 2: Iteration: 1000 / 6000 [ 16%]  (Warmup)
+Chain 4: Iteration: 1000 / 6000 [ 16%]  (Warmup)
+Chain 1: Iteration:  500 / 6000 [  8%]  (Warmup)
+Chain 2: Iteration: 1500 / 6000 [ 25%]  (Warmup)
+Chain 1: Iteration: 1000 / 6000 [ 16%]  (Warmup)
+Chain 2: Iteration: 2000 / 6000 [ 33%]  (Warmup)
+Chain 2: Iteration: 2001 / 6000 [ 33%]  (Sampling)
+Chain 1: Iteration: 1500 / 6000 [ 25%]  (Warmup)
+Chain 3: Iteration:  500 / 6000 [  8%]  (Warmup)
+Chain 3: Iteration: 1000 / 6000 [ 16%]  (Warmup)
+Chain 1: Iteration: 2000 / 6000 [ 33%]  (Warmup)
+Chain 1: Iteration: 2001 / 6000 [ 33%]  (Sampling)
+Chain 3: Iteration: 1500 / 6000 [ 25%]  (Warmup)
+Chain 2: Iteration: 2500 / 6000 [ 41%]  (Sampling)
+Chain 1: Iteration: 2500 / 6000 [ 41%]  (Sampling)
+Chain 2: Iteration: 3000 / 6000 [ 50%]  (Sampling)
+Chain 3: Iteration: 2000 / 6000 [ 33%]  (Warmup)
+Chain 3: Iteration: 2001 / 6000 [ 33%]  (Sampling)
+Chain 1: Iteration: 3000 / 6000 [ 50%]  (Sampling)
+Chain 3: Iteration: 2500 / 6000 [ 41%]  (Sampling)
+Chain 1: Iteration: 3500 / 6000 [ 58%]  (Sampling)
+Chain 2: Iteration: 3500 / 6000 [ 58%]  (Sampling)
+Chain 3: Iteration: 3000 / 6000 [ 50%]  (Sampling)
+Chain 4: Iteration: 1500 / 6000 [ 25%]  (Warmup)
+Chain 1: Iteration: 4000 / 6000 [ 66%]  (Sampling)
+Chain 3: Iteration: 3500 / 6000 [ 58%]  (Sampling)
+Chain 2: Iteration: 4000 / 6000 [ 66%]  (Sampling)
+Chain 1: Iteration: 4500 / 6000 [ 75%]  (Sampling)
+Chain 3: Iteration: 4000 / 6000 [ 66%]  (Sampling)
+Chain 3: Iteration: 4500 / 6000 [ 75%]  (Sampling)
+Chain 1: Iteration: 5000 / 6000 [ 83%]  (Sampling)
+Chain 2: Iteration: 4500 / 6000 [ 75%]  (Sampling)
+Chain 3: Iteration: 5000 / 6000 [ 83%]  (Sampling)
+Chain 1: Iteration: 5500 / 6000 [ 91%]  (Sampling)
+Chain 3: Iteration: 5500 / 6000 [ 91%]  (Sampling)
+Chain 2: Iteration: 5000 / 6000 [ 83%]  (Sampling)
+Chain 1: Iteration: 6000 / 6000 [100%]  (Sampling)
+Chain 1: 
+Chain 1:  Elapsed Time: 3.476 seconds (Warm-up)
+Chain 1:                5.805 seconds (Sampling)
+Chain 1:                9.281 seconds (Total)
+Chain 1: 
+Chain 3: Iteration: 6000 / 6000 [100%]  (Sampling)
+Chain 3: 
+Chain 3:  Elapsed Time: 4.637 seconds (Warm-up)
+Chain 3:                4.876 seconds (Sampling)
+Chain 3:                9.513 seconds (Total)
+Chain 3: 
+Chain 2: Iteration: 5500 / 6000 [ 91%]  (Sampling)
+Chain 2: Iteration: 6000 / 6000 [100%]  (Sampling)
+Chain 2: 
+Chain 2:  Elapsed Time: 2.388 seconds (Warm-up)
+Chain 2:                8.702 seconds (Sampling)
+Chain 2:                11.09 seconds (Total)
+Chain 2: 
+Chain 4: Iteration: 2000 / 6000 [ 33%]  (Warmup)
+Chain 4: Iteration: 2001 / 6000 [ 33%]  (Sampling)
+Chain 4: Iteration: 2500 / 6000 [ 41%]  (Sampling)
+Chain 4: Iteration: 3000 / 6000 [ 50%]  (Sampling)
+Chain 4: Iteration: 3500 / 6000 [ 58%]  (Sampling)
+Chain 4: Iteration: 4000 / 6000 [ 66%]  (Sampling)
+Chain 4: Iteration: 4500 / 6000 [ 75%]  (Sampling)
+Chain 4: Iteration: 5000 / 6000 [ 83%]  (Sampling)
+Chain 4: Iteration: 5500 / 6000 [ 91%]  (Sampling)
+Chain 4: Iteration: 6000 / 6000 [100%]  (Sampling)
+Chain 4: 
+Chain 4:  Elapsed Time: 11.406 seconds (Warm-up)
+Chain 4:                4.39 seconds (Sampling)
+Chain 4:                15.796 seconds (Total)
+Chain 4: 
+Warning messages:
+1: There were 104 divergent transitions after warmup. See
+https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+to find out why this is a problem and how to eliminate them. 
+2: There were 4 chains where the estimated Bayesian Fraction of Missing Information was low. See
+https://mc-stan.org/misc/warnings.html#bfmi-low 
+3: Examine the pairs() plot to diagnose sampling problems
+ 
+4: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+Running the chains for more iterations may help. See
+https://mc-stan.org/misc/warnings.html#bulk-ess 
+5: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
+Running the chains for more iterations may help. See
+https://mc-stan.org/misc/warnings.html#tail-ess 
+Divergent transitions: 104 (0.65%)
+Warning message:
+There were 104 divergent transitions after warmup. Increasing adapt_delta above 0.99 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
+Max Rhat: 1.001 | Min Bulk ESS: 6532 | Min Tail ESS: 6972
+
+Posterior summaries:
+                                                                              Estimate
+Intercept                                                                   -6.4992881
+longitude_norm                                                              -0.1244204
+latitude_norm                                                                0.1819661
+log_n_speakers_norm                                                         -0.2168204
+n_segments_norm                                                             -0.6588223
+delta_norm                                                                  -0.7536222
+longitude_norm:latitude_norm                                                -0.6592543
+longitude_norm:log_n_speakers_norm                                           1.0726791
+longitude_norm:n_segments_norm                                              -0.3189638
+longitude_norm:delta_norm                                                   -0.1871000
+latitude_norm:log_n_speakers_norm                                            0.9240727
+latitude_norm:n_segments_norm                                               -0.2427761
+latitude_norm:delta_norm                                                     0.5375783
+log_n_speakers_norm:n_segments_norm                                         -0.2919878
+log_n_speakers_norm:delta_norm                                              -0.5805865
+n_segments_norm:delta_norm                                                  -1.4903254
+longitude_norm:latitude_norm:log_n_speakers_norm                             0.4167113
+longitude_norm:latitude_norm:n_segments_norm                                 0.2183154
+longitude_norm:latitude_norm:delta_norm                                     -0.8405103
+longitude_norm:log_n_speakers_norm:n_segments_norm                           0.6121497
+longitude_norm:log_n_speakers_norm:delta_norm                                2.0793819
+longitude_norm:n_segments_norm:delta_norm                                   -2.1608560
+latitude_norm:log_n_speakers_norm:n_segments_norm                           -0.9473338
+latitude_norm:log_n_speakers_norm:delta_norm                                 1.9770601
+latitude_norm:n_segments_norm:delta_norm                                    -0.8815763
+log_n_speakers_norm:n_segments_norm:delta_norm                              -1.3693583
+longitude_norm:latitude_norm:log_n_speakers_norm:n_segments_norm             0.2057625
+longitude_norm:latitude_norm:log_n_speakers_norm:delta_norm                  0.2473022
+longitude_norm:latitude_norm:n_segments_norm:delta_norm                     -1.0278743
+longitude_norm:log_n_speakers_norm:n_segments_norm:delta_norm                0.9134821
+latitude_norm:log_n_speakers_norm:n_segments_norm:delta_norm                -1.5055985
+longitude_norm:latitude_norm:log_n_speakers_norm:n_segments_norm:delta_norm  0.0397013
+                                                                            Est.Error
+Intercept                                                                   0.7683761
+longitude_norm                                                              0.7141012
+latitude_norm                                                               0.4851689
+log_n_speakers_norm                                                         0.9553230
+n_segments_norm                                                             0.6374977
+delta_norm                                                                  1.1423615
+longitude_norm:latitude_norm                                                0.9342963
+longitude_norm:log_n_speakers_norm                                          0.8443581
+longitude_norm:n_segments_norm                                              0.5719962
+longitude_norm:delta_norm                                                   1.9232693
+latitude_norm:log_n_speakers_norm                                           0.8949979
+latitude_norm:n_segments_norm                                               0.5474406
+latitude_norm:delta_norm                                                    1.3488446
+log_n_speakers_norm:n_segments_norm                                         0.6449829
+log_n_speakers_norm:delta_norm                                              0.7893212
+n_segments_norm:delta_norm                                                  1.3180582
+longitude_norm:latitude_norm:log_n_speakers_norm                            0.4533917
+longitude_norm:latitude_norm:n_segments_norm                                0.9903143
+longitude_norm:latitude_norm:delta_norm                                     1.7911607
+longitude_norm:log_n_speakers_norm:n_segments_norm                          0.6623230
+longitude_norm:log_n_speakers_norm:delta_norm                               1.3740776
+longitude_norm:n_segments_norm:delta_norm                                   2.9085687
+latitude_norm:log_n_speakers_norm:n_segments_norm                           1.5958708
+latitude_norm:log_n_speakers_norm:delta_norm                                1.3316130
+latitude_norm:n_segments_norm:delta_norm                                    1.7114315
+log_n_speakers_norm:n_segments_norm:delta_norm                              1.3344678
+longitude_norm:latitude_norm:log_n_speakers_norm:n_segments_norm            0.9664388
+longitude_norm:latitude_norm:log_n_speakers_norm:delta_norm                 2.7757861
+longitude_norm:latitude_norm:n_segments_norm:delta_norm                     2.6741349
+longitude_norm:log_n_speakers_norm:n_segments_norm:delta_norm               2.1491110
+latitude_norm:log_n_speakers_norm:n_segments_norm:delta_norm                4.4335458
+longitude_norm:latitude_norm:log_n_speakers_norm:n_segments_norm:delta_norm 2.4960456
+                                                                               CI_lower
+Intercept                                                                    -8.0802096
+longitude_norm                                                               -1.6110764
+latitude_norm                                                                -0.8304460
+log_n_speakers_norm                                                          -2.1539976
+n_segments_norm                                                              -1.9361749
+delta_norm                                                                   -3.0712325
+longitude_norm:latitude_norm                                                 -2.6169258
+longitude_norm:log_n_speakers_norm                                           -0.6442755
+longitude_norm:n_segments_norm                                               -1.4676360
+longitude_norm:delta_norm                                                    -4.0886446
+latitude_norm:log_n_speakers_norm                                            -0.9372690
+latitude_norm:n_segments_norm                                                -1.3527613
+latitude_norm:delta_norm                                                     -2.1707434
+log_n_speakers_norm:n_segments_norm                                          -1.5488955
+log_n_speakers_norm:delta_norm                                               -2.1848024
+n_segments_norm:delta_norm                                                   -4.1574686
+longitude_norm:latitude_norm:log_n_speakers_norm                             -0.5002807
+longitude_norm:latitude_norm:n_segments_norm                                 -1.7537379
+longitude_norm:latitude_norm:delta_norm                                      -4.4815051
+longitude_norm:log_n_speakers_norm:n_segments_norm                           -0.7052371
+longitude_norm:log_n_speakers_norm:delta_norm                                -0.7318318
+longitude_norm:n_segments_norm:delta_norm                                    -7.8914756
+latitude_norm:log_n_speakers_norm:n_segments_norm                            -4.1492616
+latitude_norm:log_n_speakers_norm:delta_norm                                 -0.7343559
+latitude_norm:n_segments_norm:delta_norm                                     -4.4185032
+log_n_speakers_norm:n_segments_norm:delta_norm                               -4.0954133
+longitude_norm:latitude_norm:log_n_speakers_norm:n_segments_norm             -1.7393365
+longitude_norm:latitude_norm:log_n_speakers_norm:delta_norm                  -5.3713507
+longitude_norm:latitude_norm:n_segments_norm:delta_norm                      -6.3777715
+longitude_norm:log_n_speakers_norm:n_segments_norm:delta_norm                -3.4657900
+latitude_norm:log_n_speakers_norm:n_segments_norm:delta_norm                -10.4734286
+longitude_norm:latitude_norm:log_n_speakers_norm:n_segments_norm:delta_norm  -5.0216788
+                                                                              CI_upper
+Intercept                                                                   -4.9699700
+longitude_norm                                                               1.2692143
+latitude_norm                                                                1.1307145
+log_n_speakers_norm                                                          1.7334234
+n_segments_norm                                                              0.6265785
+delta_norm                                                                   1.5710103
+longitude_norm:latitude_norm                                                 1.1765582
+longitude_norm:log_n_speakers_norm                                           2.7664193
+longitude_norm:n_segments_norm                                               0.8268047
+longitude_norm:delta_norm                                                    3.5792940
+latitude_norm:log_n_speakers_norm                                            2.7165794
+latitude_norm:n_segments_norm                                                0.8485962
+latitude_norm:delta_norm                                                     3.2054845
+log_n_speakers_norm:n_segments_norm                                          1.0149619
+log_n_speakers_norm:delta_norm                                               0.9834147
+n_segments_norm:delta_norm                                                   1.1596728
+longitude_norm:latitude_norm:log_n_speakers_norm                             1.3250391
+longitude_norm:latitude_norm:n_segments_norm                                 2.2547860
+longitude_norm:latitude_norm:delta_norm                                      2.7061225
+longitude_norm:log_n_speakers_norm:n_segments_norm                           1.9672917
+longitude_norm:log_n_speakers_norm:delta_norm                                4.7475449
+longitude_norm:n_segments_norm:delta_norm                                    3.7547344
+latitude_norm:log_n_speakers_norm:n_segments_norm                            2.2891630
+latitude_norm:log_n_speakers_norm:delta_norm                                 4.5871027
+latitude_norm:n_segments_norm:delta_norm                                     2.4964731
+log_n_speakers_norm:n_segments_norm:delta_norm                               1.2830250
+longitude_norm:latitude_norm:log_n_speakers_norm:n_segments_norm             2.1565616
+longitude_norm:latitude_norm:log_n_speakers_norm:delta_norm                  5.8460062
+longitude_norm:latitude_norm:n_segments_norm:delta_norm                      4.4840670
+longitude_norm:log_n_speakers_norm:n_segments_norm:delta_norm                5.1508563
+latitude_norm:log_n_speakers_norm:n_segments_norm:delta_norm                 7.4733110
+longitude_norm:latitude_norm:log_n_speakers_norm:n_segments_norm:delta_norm  5.0071218
+
+Bayes R²: 0.613 (95% CI: 0.158 - 0.974)

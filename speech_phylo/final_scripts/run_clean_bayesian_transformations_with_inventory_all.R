@@ -128,10 +128,17 @@ for (tree_name in tree_names) {
         # Splines are more numerically stable and capture similar spatial patterns
         # Reference: Wood (2017) "Generalized Additive Models"
         # OPTIMIZED: Reduced spline complexity for better stability
+        # Model with all interactions (2nd and 3rd order)
         formula_obj <- bf(
             log_rate_median ~
                 t2(longitude_norm, latitude_norm, k = 5, bs = "tp") +
                 log_n_speakers_norm + n_segments_norm + delta_norm +
+                # 2nd order interactions
+                log_n_speakers_norm:n_segments_norm +
+                log_n_speakers_norm:delta_norm +
+                n_segments_norm:delta_norm +
+                # 3rd order interaction
+                log_n_speakers_norm:n_segments_norm:delta_norm +
                 (1 | gr(language_factor, cov = V)),
             decomp = "QR"
         )
@@ -285,7 +292,7 @@ for (tree_name in tree_names) {
         # Save spline surface to CSV
         spline_path <- file.path(
             "speech_phylo/final_phyloregression_results",
-            paste0("spline_surface_", tree_name, "_", coord_method, ".csv")
+            paste0("spline_surface_allinteractions_", tree_name, "_", coord_method, ".csv")
         )
         write.csv(spline_surface, spline_path, row.names = FALSE)
         cat("✔️ Spline surface written to", spline_path, "\n")
@@ -349,7 +356,8 @@ for (tree_name in tree_names) {
 
         # Build design matrix for linear fixed effects (excluding spline)
         # NOTE: This must match the parametric terms in the model formula
-        X <- model.matrix(~ log_n_speakers_norm + n_segments_norm + delta_norm,
+        # Includes all 2nd and 3rd order interactions
+        X <- model.matrix(~ log_n_speakers_norm * n_segments_norm * delta_norm,
                           data = model_df)
 
         # Match coefficient names between X and fixef_samples
@@ -592,26 +600,40 @@ for (tree_name in tree_names) {
         shapley_log_n_speakers <- phi_R2[, "log_n_speakers_norm"]
         shapley_n_segments <- phi_R2[, "n_segments_norm"]
         shapley_delta <- phi_R2[, "delta_norm"]
+        shapley_log_n_speakers_n_segments <- phi_R2[, "log_n_speakers_norm:n_segments_norm"]
+        shapley_log_n_speakers_delta <- phi_R2[, "log_n_speakers_norm:delta_norm"]
+        shapley_n_segments_delta <- phi_R2[, "n_segments_norm:delta_norm"]
+        shapley_triple <- phi_R2[, "log_n_speakers_norm:n_segments_norm:delta_norm"]
         
-        # Compute TOTAL for normalization: sum of all 6 components
+        # Compute TOTAL for normalization: sum of all components
         # Clip negative values to 0 before summing
         total_for_norm <- pmax(shapley_log_n_speakers, 0) + 
                           pmax(shapley_n_segments, 0) + 
                           pmax(shapley_delta, 0) + 
+                          pmax(shapley_log_n_speakers_n_segments, 0) +
+                          pmax(shapley_log_n_speakers_delta, 0) +
+                          pmax(shapley_n_segments_delta, 0) +
+                          pmax(shapley_triple, 0) +
                           pmax(partial_R2_spline, 0) + 
                           pmax(partial_R2_phylo, 0) + 
                           pmax(prop_residual, 0)
         
-        # Normalize each component so all 6 sum to 1 per sample
+        # Normalize each component so all sum to 1 per sample
         shapley_norm_log_n_speakers <- pmax(shapley_log_n_speakers, 0) / total_for_norm
         shapley_norm_n_segments <- pmax(shapley_n_segments, 0) / total_for_norm
         shapley_norm_delta <- pmax(shapley_delta, 0) / total_for_norm
+        shapley_norm_log_n_speakers_n_segments <- pmax(shapley_log_n_speakers_n_segments, 0) / total_for_norm
+        shapley_norm_log_n_speakers_delta <- pmax(shapley_log_n_speakers_delta, 0) / total_for_norm
+        shapley_norm_n_segments_delta <- pmax(shapley_n_segments_delta, 0) / total_for_norm
+        shapley_norm_triple <- pmax(shapley_triple, 0) / total_for_norm
         prop_spline_norm <- pmax(partial_R2_spline, 0) / total_for_norm
         prop_phylo_norm <- pmax(partial_R2_phylo, 0) / total_for_norm
         prop_residual_norm <- pmax(prop_residual, 0) / total_for_norm
         
-        # Also compute aggregated linear proportion (sum of 3 Shapley terms)
-        prop_linear_norm <- shapley_norm_log_n_speakers + shapley_norm_n_segments + shapley_norm_delta
+        # Also compute aggregated linear proportion (sum of all Shapley terms)
+        prop_linear_norm <- shapley_norm_log_n_speakers + shapley_norm_n_segments + shapley_norm_delta +
+                            shapley_norm_log_n_speakers_n_segments + shapley_norm_log_n_speakers_delta +
+                            shapley_norm_n_segments_delta + shapley_norm_triple
         
         # Create dataframe of posterior samples
         samples_df <- data.frame(
@@ -626,6 +648,10 @@ for (tree_name in tree_names) {
             shapley_log_n_speakers = shapley_log_n_speakers,
             shapley_n_segments = shapley_n_segments,
             shapley_delta = shapley_delta,
+            shapley_log_n_speakers_n_segments = shapley_log_n_speakers_n_segments,
+            shapley_log_n_speakers_delta = shapley_log_n_speakers_delta,
+            shapley_n_segments_delta = shapley_n_segments_delta,
+            shapley_triple = shapley_triple,
             # Normalized proportions (sum to 1 - use these for plotting!)
             prop_linear_norm = prop_linear_norm,
             prop_spline_norm = prop_spline_norm,
@@ -633,12 +659,16 @@ for (tree_name in tree_names) {
             prop_residual_norm = prop_residual_norm,
             shapley_norm_log_n_speakers = shapley_norm_log_n_speakers,
             shapley_norm_n_segments = shapley_norm_n_segments,
-            shapley_norm_delta = shapley_norm_delta
+            shapley_norm_delta = shapley_norm_delta,
+            shapley_norm_log_n_speakers_n_segments = shapley_norm_log_n_speakers_n_segments,
+            shapley_norm_log_n_speakers_delta = shapley_norm_log_n_speakers_delta,
+            shapley_norm_n_segments_delta = shapley_norm_n_segments_delta,
+            shapley_norm_triple = shapley_norm_triple
         )
         
         samples_path <- file.path(
             "speech_phylo/final_phyloregression_results",
-            paste0("variance_samples_", tree_name, "_", coord_method, ".csv")
+            paste0("variance_samples_allinteractions_", tree_name, "_", coord_method, ".csv")
         )
         write.csv(samples_df, samples_path, row.names = FALSE)
         cat("✔️ Posterior samples written to", samples_path, "\n")
@@ -654,7 +684,7 @@ for (tree_name in tree_names) {
         
         coef_samples_path <- file.path(
             "speech_phylo/final_phyloregression_results",
-            paste0("coef_samples_", tree_name, "_", coord_method, ".csv")
+            paste0("coef_samples_allinteractions_", tree_name, "_", coord_method, ".csv")
         )
         write.csv(coef_samples_df, coef_samples_path, row.names = FALSE)
         cat("✔️ Coefficient posterior samples written to", coef_samples_path, "\n")
@@ -690,9 +720,11 @@ for (tree_name in tree_names) {
                     variance_decomposition$residual_prop$q97.5 * 100))
         cat("\n  Per-term (Shapley decomposition of linear component):\n")
         for (term in names(term_partial_R2)) {
-            cat(sprintf("    %-40s: SS=%.4f (partial R²=%.1f%%)\n", term,
+            cat(sprintf("    %-40s: SS=%.4f (partial R²=%.1f%%, 95%% CI: %.1f%% – %.1f%%)\n", term,
                         term_SS[[term]]$mean,
-                        term_partial_R2[[term]]$mean * 100))
+                        term_partial_R2[[term]]$mean * 100,
+                        term_partial_R2[[term]]$q2.5 * 100,
+                        term_partial_R2[[term]]$q97.5 * 100)    )
         }
         cat("══════════════════════════════════════════════════════════════════\n")
 
@@ -759,7 +791,7 @@ for (tree_name in tree_names) {
         # Save CSV
         csv_path <- file.path(
             "speech_phylo/final_phyloregression_results",
-            paste0("phylolm_with_inventory_", tree_name, "_", coord_method, ".csv")
+            paste0("phylolm_with_inventory_allinteractions_", tree_name, "_", coord_method, ".csv")
         )
 
         write.csv(csv_results, csv_path, row.names = FALSE)

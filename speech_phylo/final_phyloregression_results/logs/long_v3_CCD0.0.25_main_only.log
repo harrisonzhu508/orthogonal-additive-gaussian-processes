@@ -1,0 +1,164 @@
+═══════════════════════════════════════════════════════════════════
+Running: tree=long_v3_CCD0.0.25, level=main_only
+═══════════════════════════════════════════════════════════════════
+
+Warning message:
+package ‘Rcpp’ was built under R version 4.4.3 
+Loading required package: foreach
+Loading required package: iterators
+Loading required package: parallel
+Warning message:
+package ‘iterators’ was built under R version 4.4.3 
+Compiling Stan program...
+Start sampling
+
+SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
+
+SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
+
+SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 3).
+
+SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 4).
+Chain 1: 
+Chain 1: Gradient evaluation took 2.6e-05 seconds
+Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.26 seconds.
+Chain 1: Adjust your expectations accordingly!
+Chain 1: 
+Chain 1: 
+Chain 1: Iteration:    1 / 6000 [  0%]  (Warmup)
+Chain 3: 
+Chain 3: Gradient evaluation took 1.9e-05 seconds
+Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 0.19 seconds.
+Chain 3: Adjust your expectations accordingly!
+Chain 3: 
+Chain 3: 
+Chain 3: Iteration:    1 / 6000 [  0%]  (Warmup)
+Chain 2: 
+Chain 2: Gradient evaluation took 2.9e-05 seconds
+Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.29 seconds.
+Chain 2: Adjust your expectations accordingly!
+Chain 2: 
+Chain 2: 
+Chain 2: Iteration:    1 / 6000 [  0%]  (Warmup)
+Chain 4: 
+Chain 4: Gradient evaluation took 3e-05 seconds
+Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.3 seconds.
+Chain 4: Adjust your expectations accordingly!
+Chain 4: 
+Chain 4: 
+Chain 4: Iteration:    1 / 6000 [  0%]  (Warmup)
+Chain 2: Iteration:  500 / 6000 [  8%]  (Warmup)
+Chain 1: Iteration:  500 / 6000 [  8%]  (Warmup)
+Chain 4: Iteration:  500 / 6000 [  8%]  (Warmup)
+Chain 3: Iteration:  500 / 6000 [  8%]  (Warmup)
+Chain 2: Iteration: 1000 / 6000 [ 16%]  (Warmup)
+Chain 4: Iteration: 1000 / 6000 [ 16%]  (Warmup)
+Chain 4: Iteration: 1500 / 6000 [ 25%]  (Warmup)
+Chain 2: Iteration: 1500 / 6000 [ 25%]  (Warmup)
+Chain 3: Iteration: 1000 / 6000 [ 16%]  (Warmup)
+Chain 1: Iteration: 1000 / 6000 [ 16%]  (Warmup)
+Chain 4: Iteration: 2000 / 6000 [ 33%]  (Warmup)
+Chain 4: Iteration: 2001 / 6000 [ 33%]  (Sampling)
+Chain 3: Iteration: 1500 / 6000 [ 25%]  (Warmup)
+Chain 4: Iteration: 2500 / 6000 [ 41%]  (Sampling)
+Chain 2: Iteration: 2000 / 6000 [ 33%]  (Warmup)
+Chain 2: Iteration: 2001 / 6000 [ 33%]  (Sampling)
+Chain 3: Iteration: 2000 / 6000 [ 33%]  (Warmup)
+Chain 3: Iteration: 2001 / 6000 [ 33%]  (Sampling)
+Chain 1: Iteration: 1500 / 6000 [ 25%]  (Warmup)
+Chain 4: Iteration: 3000 / 6000 [ 50%]  (Sampling)
+Chain 3: Iteration: 2500 / 6000 [ 41%]  (Sampling)
+Chain 1: Iteration: 2000 / 6000 [ 33%]  (Warmup)
+Chain 1: Iteration: 2001 / 6000 [ 33%]  (Sampling)
+Chain 1: Iteration: 2500 / 6000 [ 41%]  (Sampling)
+Chain 4: Iteration: 3500 / 6000 [ 58%]  (Sampling)
+Chain 3: Iteration: 3000 / 6000 [ 50%]  (Sampling)
+Chain 1: Iteration: 3000 / 6000 [ 50%]  (Sampling)
+Chain 2: Iteration: 2500 / 6000 [ 41%]  (Sampling)
+Chain 1: Iteration: 3500 / 6000 [ 58%]  (Sampling)
+Chain 3: Iteration: 3500 / 6000 [ 58%]  (Sampling)
+Chain 1: Iteration: 4000 / 6000 [ 66%]  (Sampling)
+Chain 1: Iteration: 4500 / 6000 [ 75%]  (Sampling)
+Chain 4: Iteration: 4000 / 6000 [ 66%]  (Sampling)
+Chain 4: Iteration: 4500 / 6000 [ 75%]  (Sampling)
+Chain 3: Iteration: 4000 / 6000 [ 66%]  (Sampling)
+Chain 1: Iteration: 5000 / 6000 [ 83%]  (Sampling)
+Chain 4: Iteration: 5000 / 6000 [ 83%]  (Sampling)
+Chain 1: Iteration: 5500 / 6000 [ 91%]  (Sampling)
+Chain 3: Iteration: 4500 / 6000 [ 75%]  (Sampling)
+Chain 1: Iteration: 6000 / 6000 [100%]  (Sampling)
+Chain 1: 
+Chain 1:  Elapsed Time: 6.773 seconds (Warm-up)
+Chain 1:                4.005 seconds (Sampling)
+Chain 1:                10.778 seconds (Total)
+Chain 1: 
+Chain 2: Iteration: 3000 / 6000 [ 50%]  (Sampling)
+Chain 3: Iteration: 5000 / 6000 [ 83%]  (Sampling)
+Chain 4: Iteration: 5500 / 6000 [ 91%]  (Sampling)
+Chain 3: Iteration: 5500 / 6000 [ 91%]  (Sampling)
+Chain 4: Iteration: 6000 / 6000 [100%]  (Sampling)
+Chain 4: 
+Chain 4:  Elapsed Time: 3.387 seconds (Warm-up)
+Chain 4:                9.38 seconds (Sampling)
+Chain 4:                12.767 seconds (Total)
+Chain 4: 
+Chain 2: Iteration: 3500 / 6000 [ 58%]  (Sampling)
+Chain 3: Iteration: 6000 / 6000 [100%]  (Sampling)
+Chain 3: 
+Chain 3:  Elapsed Time: 5.282 seconds (Warm-up)
+Chain 3:                7.883 seconds (Sampling)
+Chain 3:                13.165 seconds (Total)
+Chain 3: 
+Chain 2: Iteration: 4000 / 6000 [ 66%]  (Sampling)
+Chain 2: Iteration: 4500 / 6000 [ 75%]  (Sampling)
+Chain 2: Iteration: 5000 / 6000 [ 83%]  (Sampling)
+Chain 2: Iteration: 5500 / 6000 [ 91%]  (Sampling)
+Chain 2: Iteration: 6000 / 6000 [100%]  (Sampling)
+Chain 2: 
+Chain 2:  Elapsed Time: 4.949 seconds (Warm-up)
+Chain 2:                19.332 seconds (Sampling)
+Chain 2:                24.281 seconds (Total)
+Chain 2: 
+Warning messages:
+1: There were 862 divergent transitions after warmup. See
+https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+to find out why this is a problem and how to eliminate them. 
+2: There were 4 chains where the estimated Bayesian Fraction of Missing Information was low. See
+https://mc-stan.org/misc/warnings.html#bfmi-low 
+3: Examine the pairs() plot to diagnose sampling problems
+ 
+4: The largest R-hat is 1.05, indicating chains have not mixed.
+Running the chains for more iterations may help. See
+https://mc-stan.org/misc/warnings.html#r-hat 
+5: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+Running the chains for more iterations may help. See
+https://mc-stan.org/misc/warnings.html#bulk-ess 
+6: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
+Running the chains for more iterations may help. See
+https://mc-stan.org/misc/warnings.html#tail-ess 
+Divergent transitions: 862 (5.39%)
+Warning message:
+There were 862 divergent transitions after warmup. Increasing adapt_delta above 0.99 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
+Max Rhat: 1.023 | Min Bulk ESS: 2105 | Min Tail ESS: 2320
+
+Posterior summaries:
+                         Estimate  Est.Error    CI_lower     CI_upper
+Intercept            1.9320187848 0.09045154  1.74997640  2.108973448
+longitude_norm      -0.1297956789 0.06397466 -0.25535463 -0.001898803
+latitude_norm       -0.0002620587 0.06344861 -0.12544287  0.127352105
+log_n_speakers_norm  0.0094091173 0.03214069 -0.05269204  0.075088484
+n_segments_norm      0.0186372534 0.03686413 -0.05668356  0.089494383
+delta_norm          -0.0858475675 0.04227137 -0.16975834 -0.001678613
+
+Bayes R²: 0.713 (95% CI: 0.106 - 0.998)
+✔️ Posterior samples written to speech_phylo/final_phyloregression_results/variance_samples_linear_main_only_long_v3_CCD0.0.25_standard.csv 
+✔️ Coefficient samples written to speech_phylo/final_phyloregression_results/coef_samples_linear_main_only_long_v3_CCD0.0.25_standard.csv 
+✔️ CSV results written to speech_phylo/final_phyloregression_results/phylolm_linear_main_only_long_v3_CCD0.0.25_standard.csv 
+
+══════════════════════════════════════════════════════════════════
+COMPLETED: long_v3_CCD0.0.25 × main_only
+══════════════════════════════════════════════════════════════════
+  R²: 0.967 (95% CI: 0.824 – 1.000)
+  Phylogenetic: 95.6%
+  Residual: 3.3%
+══════════════════════════════════════════════════════════════════

@@ -1,0 +1,197 @@
+═══════════════════════════════════════════════════════════════════
+Running: tree=heggarty2024, level=thirdorder
+═══════════════════════════════════════════════════════════════════
+
+Warning message:
+package ‘Rcpp’ was built under R version 4.4.3 
+Loading required package: foreach
+Loading required package: iterators
+Loading required package: parallel
+Warning message:
+package ‘iterators’ was built under R version 4.4.3 
+Compiling Stan program...
+Start sampling
+
+SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
+Chain 1: 
+Chain 1: Gradient evaluation took 4.7e-05 seconds
+Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.47 seconds.
+Chain 1: Adjust your expectations accordingly!
+Chain 1: 
+Chain 1: 
+Chain 1: Iteration:    1 / 6000 [  0%]  (Warmup)
+
+SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
+Chain 2: 
+Chain 2: Gradient evaluation took 4e-05 seconds
+Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.4 seconds.
+Chain 2: Adjust your expectations accordingly!
+Chain 2: 
+Chain 2: 
+Chain 2: Iteration:    1 / 6000 [  0%]  (Warmup)
+
+SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 3).
+Chain 3: 
+Chain 3: Gradient evaluation took 4.9e-05 seconds
+Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 0.49 seconds.
+Chain 3: Adjust your expectations accordingly!
+Chain 3: 
+Chain 3: 
+Chain 3: Iteration:    1 / 6000 [  0%]  (Warmup)
+
+SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 4).
+Chain 4: 
+Chain 4: Gradient evaluation took 5e-05 seconds
+Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.5 seconds.
+Chain 4: Adjust your expectations accordingly!
+Chain 4: 
+Chain 4: 
+Chain 4: Iteration:    1 / 6000 [  0%]  (Warmup)
+Chain 2: Iteration:  500 / 6000 [  8%]  (Warmup)
+Chain 2: Iteration: 1000 / 6000 [ 16%]  (Warmup)
+Chain 4: Iteration:  500 / 6000 [  8%]  (Warmup)
+Chain 3: Iteration:  500 / 6000 [  8%]  (Warmup)
+Chain 1: Iteration:  500 / 6000 [  8%]  (Warmup)
+Chain 3: Iteration: 1000 / 6000 [ 16%]  (Warmup)
+Chain 1: Iteration: 1000 / 6000 [ 16%]  (Warmup)
+Chain 4: Iteration: 1000 / 6000 [ 16%]  (Warmup)
+Chain 4: Iteration: 1500 / 6000 [ 25%]  (Warmup)
+Chain 1: Iteration: 1500 / 6000 [ 25%]  (Warmup)
+Chain 2: Iteration: 1500 / 6000 [ 25%]  (Warmup)
+Chain 1: Iteration: 2000 / 6000 [ 33%]  (Warmup)
+Chain 1: Iteration: 2001 / 6000 [ 33%]  (Sampling)
+Chain 4: Iteration: 2000 / 6000 [ 33%]  (Warmup)
+Chain 4: Iteration: 2001 / 6000 [ 33%]  (Sampling)
+Chain 2: Iteration: 2000 / 6000 [ 33%]  (Warmup)
+Chain 2: Iteration: 2001 / 6000 [ 33%]  (Sampling)
+Chain 1: Iteration: 2500 / 6000 [ 41%]  (Sampling)
+Chain 1: Iteration: 3000 / 6000 [ 50%]  (Sampling)
+Chain 2: Iteration: 2500 / 6000 [ 41%]  (Sampling)
+Chain 4: Iteration: 2500 / 6000 [ 41%]  (Sampling)
+Chain 1: Iteration: 3500 / 6000 [ 58%]  (Sampling)
+Chain 2: Iteration: 3000 / 6000 [ 50%]  (Sampling)
+Chain 1: Iteration: 4000 / 6000 [ 66%]  (Sampling)
+Chain 4: Iteration: 3000 / 6000 [ 50%]  (Sampling)
+Chain 2: Iteration: 3500 / 6000 [ 58%]  (Sampling)
+Chain 1: Iteration: 4500 / 6000 [ 75%]  (Sampling)
+Chain 1: Iteration: 5000 / 6000 [ 83%]  (Sampling)
+Chain 2: Iteration: 4000 / 6000 [ 66%]  (Sampling)
+Chain 1: Iteration: 5500 / 6000 [ 91%]  (Sampling)
+Chain 4: Iteration: 3500 / 6000 [ 58%]  (Sampling)
+Chain 2: Iteration: 4500 / 6000 [ 75%]  (Sampling)
+Chain 1: Iteration: 6000 / 6000 [100%]  (Sampling)
+Chain 1: 
+Chain 1:  Elapsed Time: 3.37 seconds (Warm-up)
+Chain 1:                3.694 seconds (Sampling)
+Chain 1:                7.064 seconds (Total)
+Chain 1: 
+Chain 2: Iteration: 5000 / 6000 [ 83%]  (Sampling)
+Chain 4: Iteration: 4000 / 6000 [ 66%]  (Sampling)
+Chain 2: Iteration: 5500 / 6000 [ 91%]  (Sampling)
+Chain 4: Iteration: 4500 / 6000 [ 75%]  (Sampling)
+Chain 2: Iteration: 6000 / 6000 [100%]  (Sampling)
+Chain 2: 
+Chain 2:  Elapsed Time: 3.724 seconds (Warm-up)
+Chain 2:                5.256 seconds (Sampling)
+Chain 2:                8.98 seconds (Total)
+Chain 2: 
+Chain 4: Iteration: 5000 / 6000 [ 83%]  (Sampling)
+Chain 4: Iteration: 5500 / 6000 [ 91%]  (Sampling)
+Chain 4: Iteration: 6000 / 6000 [100%]  (Sampling)
+Chain 4: 
+Chain 4:  Elapsed Time: 3.688 seconds (Warm-up)
+Chain 4:                8.273 seconds (Sampling)
+Chain 4:                11.961 seconds (Total)
+Chain 4: 
+Chain 3: Iteration: 1500 / 6000 [ 25%]  (Warmup)
+Chain 3: Iteration: 2000 / 6000 [ 33%]  (Warmup)
+Chain 3: Iteration: 2001 / 6000 [ 33%]  (Sampling)
+Chain 3: Iteration: 2500 / 6000 [ 41%]  (Sampling)
+Chain 3: Iteration: 3000 / 6000 [ 50%]  (Sampling)
+Chain 3: Iteration: 3500 / 6000 [ 58%]  (Sampling)
+Chain 3: Iteration: 4000 / 6000 [ 66%]  (Sampling)
+Chain 3: Iteration: 4500 / 6000 [ 75%]  (Sampling)
+Chain 3: Iteration: 5000 / 6000 [ 83%]  (Sampling)
+Chain 3: Iteration: 5500 / 6000 [ 91%]  (Sampling)
+Chain 3: Iteration: 6000 / 6000 [100%]  (Sampling)
+Chain 3: 
+Chain 3:  Elapsed Time: 13.03 seconds (Warm-up)
+Chain 3:                5.565 seconds (Sampling)
+Chain 3:                18.595 seconds (Total)
+Chain 3: 
+Warning messages:
+1: There were 153 divergent transitions after warmup. See
+https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+to find out why this is a problem and how to eliminate them. 
+2: There were 3 chains where the estimated Bayesian Fraction of Missing Information was low. See
+https://mc-stan.org/misc/warnings.html#bfmi-low 
+3: Examine the pairs() plot to diagnose sampling problems
+ 
+4: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+Running the chains for more iterations may help. See
+https://mc-stan.org/misc/warnings.html#bulk-ess 
+5: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
+Running the chains for more iterations may help. See
+https://mc-stan.org/misc/warnings.html#tail-ess 
+Divergent transitions: 153 (0.96%)
+Warning message:
+There were 153 divergent transitions after warmup. Increasing adapt_delta above 0.99 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
+Max Rhat: 1.003 | Min Bulk ESS: 1665 | Min Tail ESS: 3293
+
+Posterior summaries:
+                                                       Estimate Est.Error
+Intercept                                          -6.110126953 0.3328567
+longitude_norm                                     -0.131418406 0.3398831
+latitude_norm                                       0.014215841 0.3347345
+log_n_speakers_norm                                -0.052923126 0.2527044
+n_segments_norm                                    -0.359413217 0.3442654
+delta_norm                                         -0.051645245 0.4425800
+longitude_norm:latitude_norm                       -0.286654391 0.3728641
+longitude_norm:log_n_speakers_norm                  0.529674770 0.4130292
+longitude_norm:n_segments_norm                     -0.348350440 0.3567154
+longitude_norm:delta_norm                          -0.320571524 0.6931439
+latitude_norm:log_n_speakers_norm                   0.371140532 0.4315757
+latitude_norm:n_segments_norm                       0.163555276 0.3549570
+latitude_norm:delta_norm                           -0.243778650 0.7865013
+log_n_speakers_norm:n_segments_norm                 0.086123479 0.4041482
+log_n_speakers_norm:delta_norm                     -0.209617356 0.4306596
+n_segments_norm:delta_norm                          0.108419911 0.5117920
+longitude_norm:latitude_norm:log_n_speakers_norm    0.292959416 0.2278903
+longitude_norm:latitude_norm:n_segments_norm       -0.420021031 0.3379754
+longitude_norm:latitude_norm:delta_norm            -0.066555041 0.5300481
+longitude_norm:log_n_speakers_norm:n_segments_norm  0.135327444 0.2881654
+longitude_norm:log_n_speakers_norm:delta_norm       1.080451229 0.7193002
+longitude_norm:n_segments_norm:delta_norm          -0.717854021 0.7476754
+latitude_norm:log_n_speakers_norm:n_segments_norm  -0.084196654 0.2124725
+latitude_norm:log_n_speakers_norm:delta_norm        0.534901946 0.7933928
+latitude_norm:n_segments_norm:delta_norm           -0.180222258 0.6441777
+log_n_speakers_norm:n_segments_norm:delta_norm     -0.002408155 0.6970308
+                                                     CI_lower   CI_upper
+Intercept                                          -6.7438521 -5.4126025
+longitude_norm                                     -0.8124971  0.5534916
+latitude_norm                                      -0.6409434  0.6814594
+log_n_speakers_norm                                -0.5626426  0.4380784
+n_segments_norm                                    -1.0508991  0.3113802
+delta_norm                                         -0.9400043  0.7949153
+longitude_norm:latitude_norm                       -1.0146657  0.4667079
+longitude_norm:log_n_speakers_norm                 -0.2931489  1.3527486
+longitude_norm:n_segments_norm                     -1.0575193  0.3475799
+longitude_norm:delta_norm                          -1.6722151  1.0654514
+latitude_norm:log_n_speakers_norm                  -0.4733607  1.2448633
+latitude_norm:n_segments_norm                      -0.5242289  0.8679020
+latitude_norm:delta_norm                           -1.7957335  1.3257851
+log_n_speakers_norm:n_segments_norm                -0.7217439  0.8841263
+log_n_speakers_norm:delta_norm                     -1.0626461  0.6435478
+n_segments_norm:delta_norm                         -0.9194469  1.0952608
+longitude_norm:latitude_norm:log_n_speakers_norm   -0.1541150  0.7514392
+longitude_norm:latitude_norm:n_segments_norm       -1.0864442  0.2488100
+longitude_norm:latitude_norm:delta_norm            -1.1178995  0.9920273
+longitude_norm:log_n_speakers_norm:n_segments_norm -0.4254631  0.7189980
+longitude_norm:log_n_speakers_norm:delta_norm      -0.3700468  2.4967755
+longitude_norm:n_segments_norm:delta_norm          -2.2131722  0.7711810
+latitude_norm:log_n_speakers_norm:n_segments_norm  -0.5031493  0.3327669
+latitude_norm:log_n_speakers_norm:delta_norm       -1.0193396  2.0938998
+latitude_norm:n_segments_norm:delta_norm           -1.4653319  1.0921692
+log_n_speakers_norm:n_segments_norm:delta_norm     -1.3615449  1.4078571
+
+Bayes R²: 0.573 (95% CI: 0.156 - 0.955)

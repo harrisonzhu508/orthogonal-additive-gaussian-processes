@@ -396,24 +396,29 @@ def plot_variance_violin(
                 mean_val = np.mean(data)
                 q2_5 = np.percentile(data, 2.5)
                 q97_5 = np.percentile(data, 97.5)
-                cap_height = 0.08  # Height of endpoint caps
+                cap_height = 0.12  # Height of endpoint caps (increased)
                 
-                # Draw 95% CI line
-                ax.plot([q2_5, q97_5], [pos, pos], color=color, linewidth=1.5, alpha=0.8)
-                # Draw endpoint caps
+                # Draw 95% CI line (thicker)
+                ax.plot([q2_5, q97_5], [pos, pos], color=color, linewidth=2.5, alpha=0.9)
+                # Draw endpoint caps (thicker)
                 ax.plot([q2_5, q2_5], [pos - cap_height, pos + cap_height], 
-                        color=color, linewidth=1.5, alpha=0.8)
+                        color=color, linewidth=2.5, alpha=0.9)
                 ax.plot([q97_5, q97_5], [pos - cap_height, pos + cap_height], 
-                        color=color, linewidth=1.5, alpha=0.8)
-                # Draw mean marker
-                ax.scatter([mean_val], [pos], color=color, s=30, zorder=5, 
-                          marker='|', linewidth=2)
+                        color=color, linewidth=2.5, alpha=0.9)
+                # Draw mean marker (thicker)
+                ax.scatter([mean_val], [pos], color=color, s=40, zorder=5, 
+                          marker='|', linewidth=3)
                 
                 # Add text labels for CI endpoints (as percentages for variance)
                 ax.text(q2_5, pos + 0.15, f'{q2_5*100:.0f}%', ha='center', va='bottom',
                         fontsize=6, color=color, alpha=0.9)
                 ax.text(q97_5, pos + 0.15, f'{q97_5*100:.0f}%', ha='center', va='bottom',
                         fontsize=6, color=color, alpha=0.9)
+    
+    # Add subtle highlight band for delta row to emphasize key finding
+    if "delta" in comp_order:
+        delta_idx = comp_order.index("delta")
+        ax.axhspan(delta_idx - 0.4, delta_idx + 0.4, color='#fff3cd', alpha=0.4, zorder=0)
     
     # Professional styling
     ax.set_yticks(range(n_comps))
@@ -1171,24 +1176,29 @@ def plot_effects_comparison(
                 mean_val = np.mean(data)
                 q2_5 = np.percentile(data, 2.5)
                 q97_5 = np.percentile(data, 97.5)
-                cap_height = 0.08  # Height of endpoint caps
+                cap_height = 0.12  # Height of endpoint caps (increased)
                 
-                # Draw 95% CI line
-                ax.plot([q2_5, q97_5], [pos, pos], color=color, linewidth=1.5, alpha=0.8)
-                # Draw endpoint caps
+                # Draw 95% CI line (thicker)
+                ax.plot([q2_5, q97_5], [pos, pos], color=color, linewidth=2.5, alpha=0.9)
+                # Draw endpoint caps (thicker)
                 ax.plot([q2_5, q2_5], [pos - cap_height, pos + cap_height], 
-                        color=color, linewidth=1.5, alpha=0.8)
+                        color=color, linewidth=2.5, alpha=0.9)
                 ax.plot([q97_5, q97_5], [pos - cap_height, pos + cap_height], 
-                        color=color, linewidth=1.5, alpha=0.8)
-                # Draw mean marker
-                ax.scatter([mean_val], [pos], color=color, s=30, zorder=5, 
-                          marker='|', linewidth=2)
+                        color=color, linewidth=2.5, alpha=0.9)
+                # Draw mean marker (thicker)
+                ax.scatter([mean_val], [pos], color=color, s=40, zorder=5, 
+                          marker='|', linewidth=3)
                 
                 # Add text labels for CI endpoints
                 ax.text(q2_5, pos + 0.15, f'{q2_5:.2f}', ha='center', va='bottom',
                         fontsize=6, color=color, alpha=0.9)
                 ax.text(q97_5, pos + 0.15, f'{q97_5:.2f}', ha='center', va='bottom',
                         fontsize=6, color=color, alpha=0.9)
+                
+    # Add subtle highlight band for delta row to emphasize key finding
+    if "delta" in coeff_order:
+        delta_idx = coeff_order.index("delta")
+        ax.axhspan(delta_idx - 0.4, delta_idx + 0.4, color='#fff3cd', alpha=0.4, zorder=0)
     
     # Professional styling
     ax.axvline(0, color="#333333", linestyle="-", linewidth=0.8, alpha=0.6)
@@ -1472,12 +1482,12 @@ def create_combined_pdf_simple(
 if __name__ == "__main__":
     # Example usage
     plot_all_models(csv_dir="speech_phylo/final_phyloregression_results", save=True)
-    plot_all_spline_surfaces(csv_dir="speech_phylo/final_phyloregression_results", save=True)
-    plot_all_significance_plots(csv_dir="speech_phylo/final_phyloregression_results", save=True, output_dir="speech_phylo/final_spline_figuresv2")
+    # plot_all_spline_surfaces(csv_dir="speech_phylo/final_phyloregression_results", save=True)
+    # plot_all_significance_plots(csv_dir="speech_phylo/final_phyloregression_results", save=True, output_dir="speech_phylo/final_spline_figuresv2")
     
     # Create combined PDF with all figures
-    create_combined_pdf_simple(
-        output_dir="speech_phylo/final_spline_figuresv2",
-        output_filename="all_spline_figures_combined.pdf",
-        csv_dir="speech_phylo/final_phyloregression_results"
-    )
+    # create_combined_pdf_simple(
+    #     output_dir="speech_phylo/final_spline_figuresv2",
+    #     output_filename="all_spline_figures_combined.pdf",
+    #     csv_dir="speech_phylo/final_phyloregression_results"
+    # )

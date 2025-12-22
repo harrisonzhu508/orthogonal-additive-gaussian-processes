@@ -460,6 +460,11 @@ def plot_effects_comparison(
                 ax.text(q97_5, pos + 0.15, f'{q97_5:.2f}', ha='center', va='bottom',
                         fontsize=6, color=color, alpha=0.9)
     
+    # Add subtle highlight band for delta row to emphasize key finding
+    for i, coeff in enumerate(coeff_order):
+        if "delta" in coeff.lower():
+            ax.axhspan(i - 0.4, i + 0.4, color='#fff3cd', alpha=0.4, zorder=0)
+    
     # Professional styling
     ax.axvline(0, color="#333333", linestyle="-", linewidth=0.8, alpha=0.6)
     ax.set_yticks(range(n_coeffs))
@@ -578,21 +583,29 @@ def plot_variance_violin(
                 mean_val = np.mean(data)
                 q2_5 = np.percentile(data, 2.5)
                 q97_5 = np.percentile(data, 97.5)
-                cap_height = 0.08
+                cap_height = 0.12  # Height of endpoint caps (increased)
                 
-                ax.plot([q2_5, q97_5], [pos, pos], color=color, linewidth=1.5, alpha=0.8)
+                # Draw 95% CI line (thicker)
+                ax.plot([q2_5, q97_5], [pos, pos], color=color, linewidth=2.5, alpha=0.9)
+                # Draw endpoint caps (thicker)
                 ax.plot([q2_5, q2_5], [pos - cap_height, pos + cap_height],
-                        color=color, linewidth=1.5, alpha=0.8)
+                        color=color, linewidth=2.5, alpha=0.9)
                 ax.plot([q97_5, q97_5], [pos - cap_height, pos + cap_height],
-                        color=color, linewidth=1.5, alpha=0.8)
-                ax.scatter([mean_val], [pos], color=color, s=30, zorder=5,
-                          marker='|', linewidth=2)
+                        color=color, linewidth=2.5, alpha=0.9)
+                # Draw mean marker (thicker)
+                ax.scatter([mean_val], [pos], color=color, s=40, zorder=5,
+                          marker='|', linewidth=3)
                 
                 # Add text labels for CI endpoints (as percentages for variance)
                 ax.text(q2_5, pos + 0.15, f'{q2_5*100:.0f}%', ha='center', va='bottom',
                         fontsize=6, color=color, alpha=0.9)
                 ax.text(q97_5, pos + 0.15, f'{q97_5*100:.0f}%', ha='center', va='bottom',
                         fontsize=6, color=color, alpha=0.9)
+    
+    # Add subtle highlight band for delta row to emphasize key finding
+    for i, comp in enumerate(comp_order):
+        if "delta" in comp.lower():
+            ax.axhspan(i - 0.4, i + 0.4, color='#fff3cd', alpha=0.4, zorder=0)
     
     # Professional styling
     ax.set_yticks(range(n_comps))

@@ -14,293 +14,378 @@ Start sampling
 
 SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 1).
 Chain 1: 
-Chain 1: Gradient evaluation took 2.8e-05 seconds
-Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.28 seconds.
+Chain 1: Gradient evaluation took 3.7e-05 seconds
+Chain 1: 1000 transitions using 10 leapfrog steps per transition would take 0.37 seconds.
 Chain 1: Adjust your expectations accordingly!
 Chain 1: 
 Chain 1: 
-Chain 1: Iteration:     1 / 20000 [  0%]  (Warmup)
 
 SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 2).
+Chain 1: Iteration:     1 / 30000 [  0%]  (Warmup)
 Chain 2: 
-Chain 2: Gradient evaluation took 2.8e-05 seconds
-Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.28 seconds.
+Chain 2: Gradient evaluation took 2.6e-05 seconds
+Chain 2: 1000 transitions using 10 leapfrog steps per transition would take 0.26 seconds.
 Chain 2: Adjust your expectations accordingly!
 Chain 2: 
 Chain 2: 
-Chain 2: Iteration:     1 / 20000 [  0%]  (Warmup)
+Chain 2: Iteration:     1 / 30000 [  0%]  (Warmup)
 
 SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 3).
 Chain 3: 
-Chain 3: Gradient evaluation took 3e-05 seconds
-Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 0.3 seconds.
+Chain 3: Gradient evaluation took 2.5e-05 seconds
+Chain 3: 1000 transitions using 10 leapfrog steps per transition would take 0.25 seconds.
 Chain 3: Adjust your expectations accordingly!
 Chain 3: 
 Chain 3: 
-Chain 3: Iteration:     1 / 20000 [  0%]  (Warmup)
+Chain 3: Iteration:     1 / 30000 [  0%]  (Warmup)
 
 SAMPLING FOR MODEL 'anon_model' NOW (CHAIN 4).
 Chain 4: 
-Chain 4: Gradient evaluation took 2.8e-05 seconds
-Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.28 seconds.
+Chain 4: Gradient evaluation took 2.6e-05 seconds
+Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.26 seconds.
 Chain 4: Adjust your expectations accordingly!
 Chain 4: 
 Chain 4: 
-Chain 4: Iteration:     1 / 20000 [  0%]  (Warmup)
-Chain 4: Iteration:   500 / 20000 [  2%]  (Warmup)
-Chain 2: Iteration:   500 / 20000 [  2%]  (Warmup)
-Chain 1: Iteration:   500 / 20000 [  2%]  (Warmup)
-Chain 3: Iteration:   500 / 20000 [  2%]  (Warmup)
-Chain 4: Iteration:  1000 / 20000 [  5%]  (Warmup)
-Chain 4: Iteration:  1500 / 20000 [  7%]  (Warmup)
-Chain 2: Iteration:  1000 / 20000 [  5%]  (Warmup)
-Chain 4: Iteration:  2000 / 20000 [ 10%]  (Warmup)
-Chain 1: Iteration:  1000 / 20000 [  5%]  (Warmup)
-Chain 4: Iteration:  2500 / 20000 [ 12%]  (Warmup)
-Chain 2: Iteration:  1500 / 20000 [  7%]  (Warmup)
-Chain 1: Iteration:  1500 / 20000 [  7%]  (Warmup)
-Chain 4: Iteration:  3000 / 20000 [ 15%]  (Warmup)
-Chain 4: Iteration:  3500 / 20000 [ 17%]  (Warmup)
-Chain 2: Iteration:  2000 / 20000 [ 10%]  (Warmup)
-Chain 1: Iteration:  2000 / 20000 [ 10%]  (Warmup)
-Chain 4: Iteration:  4000 / 20000 [ 20%]  (Warmup)
-Chain 4: Iteration:  4500 / 20000 [ 22%]  (Warmup)
-Chain 1: Iteration:  2500 / 20000 [ 12%]  (Warmup)
-Chain 2: Iteration:  2500 / 20000 [ 12%]  (Warmup)
-Chain 4: Iteration:  5000 / 20000 [ 25%]  (Warmup)
-Chain 1: Iteration:  3000 / 20000 [ 15%]  (Warmup)
-Chain 2: Iteration:  3000 / 20000 [ 15%]  (Warmup)
-Chain 1: Iteration:  3500 / 20000 [ 17%]  (Warmup)
-Chain 4: Iteration:  5500 / 20000 [ 27%]  (Warmup)
-Chain 2: Iteration:  3500 / 20000 [ 17%]  (Warmup)
-Chain 1: Iteration:  4000 / 20000 [ 20%]  (Warmup)
-Chain 2: Iteration:  4000 / 20000 [ 20%]  (Warmup)
-Chain 1: Iteration:  4500 / 20000 [ 22%]  (Warmup)
-Chain 2: Iteration:  4500 / 20000 [ 22%]  (Warmup)
-Chain 4: Iteration:  6000 / 20000 [ 30%]  (Warmup)
-Chain 2: Iteration:  5000 / 20000 [ 25%]  (Warmup)
-Chain 1: Iteration:  5000 / 20000 [ 25%]  (Warmup)
-Chain 3: Iteration:  1000 / 20000 [  5%]  (Warmup)
-Chain 4: Iteration:  6500 / 20000 [ 32%]  (Warmup)
-Chain 2: Iteration:  5500 / 20000 [ 27%]  (Warmup)
-Chain 4: Iteration:  7000 / 20000 [ 35%]  (Warmup)
-Chain 2: Iteration:  6000 / 20000 [ 30%]  (Warmup)
-Chain 1: Iteration:  5500 / 20000 [ 27%]  (Warmup)
-Chain 4: Iteration:  7500 / 20000 [ 37%]  (Warmup)
-Chain 1: Iteration:  6000 / 20000 [ 30%]  (Warmup)
-Chain 4: Iteration:  8000 / 20000 [ 40%]  (Warmup)
-Chain 1: Iteration:  6500 / 20000 [ 32%]  (Warmup)
-Chain 4: Iteration:  8500 / 20000 [ 42%]  (Warmup)
-Chain 2: Iteration:  6500 / 20000 [ 32%]  (Warmup)
-Chain 1: Iteration:  7000 / 20000 [ 35%]  (Warmup)
-Chain 4: Iteration:  9000 / 20000 [ 45%]  (Warmup)
-Chain 3: Iteration:  1500 / 20000 [  7%]  (Warmup)
-Chain 2: Iteration:  7000 / 20000 [ 35%]  (Warmup)
-Chain 3: Iteration:  2000 / 20000 [ 10%]  (Warmup)
-Chain 1: Iteration:  7500 / 20000 [ 37%]  (Warmup)
-Chain 4: Iteration:  9500 / 20000 [ 47%]  (Warmup)
-Chain 1: Iteration:  8000 / 20000 [ 40%]  (Warmup)
-Chain 4: Iteration: 10000 / 20000 [ 50%]  (Warmup)
-Chain 4: Iteration: 10001 / 20000 [ 50%]  (Sampling)
-Chain 2: Iteration:  7500 / 20000 [ 37%]  (Warmup)
-Chain 4: Iteration: 10500 / 20000 [ 52%]  (Sampling)
-Chain 4: Iteration: 11000 / 20000 [ 55%]  (Sampling)
-Chain 4: Iteration: 11500 / 20000 [ 57%]  (Sampling)
-Chain 1: Iteration:  8500 / 20000 [ 42%]  (Warmup)
-Chain 4: Iteration: 12000 / 20000 [ 60%]  (Sampling)
-Chain 2: Iteration:  8000 / 20000 [ 40%]  (Warmup)
-Chain 4: Iteration: 12500 / 20000 [ 62%]  (Sampling)
-Chain 4: Iteration: 13000 / 20000 [ 65%]  (Sampling)
-Chain 1: Iteration:  9000 / 20000 [ 45%]  (Warmup)
-Chain 2: Iteration:  8500 / 20000 [ 42%]  (Warmup)
-Chain 4: Iteration: 13500 / 20000 [ 67%]  (Sampling)
-Chain 3: Iteration:  2500 / 20000 [ 12%]  (Warmup)
-Chain 4: Iteration: 14000 / 20000 [ 70%]  (Sampling)
-Chain 1: Iteration:  9500 / 20000 [ 47%]  (Warmup)
-Chain 2: Iteration:  9000 / 20000 [ 45%]  (Warmup)
-Chain 4: Iteration: 14500 / 20000 [ 72%]  (Sampling)
-Chain 4: Iteration: 15000 / 20000 [ 75%]  (Sampling)
-Chain 2: Iteration:  9500 / 20000 [ 47%]  (Warmup)
-Chain 4: Iteration: 15500 / 20000 [ 77%]  (Sampling)
-Chain 1: Iteration: 10000 / 20000 [ 50%]  (Warmup)
-Chain 1: Iteration: 10001 / 20000 [ 50%]  (Sampling)
-Chain 4: Iteration: 16000 / 20000 [ 80%]  (Sampling)
-Chain 1: Iteration: 10500 / 20000 [ 52%]  (Sampling)
-Chain 2: Iteration: 10000 / 20000 [ 50%]  (Warmup)
-Chain 2: Iteration: 10001 / 20000 [ 50%]  (Sampling)
-Chain 3: Iteration:  3000 / 20000 [ 15%]  (Warmup)
-Chain 4: Iteration: 16500 / 20000 [ 82%]  (Sampling)
-Chain 1: Iteration: 11000 / 20000 [ 55%]  (Sampling)
-Chain 2: Iteration: 10500 / 20000 [ 52%]  (Sampling)
-Chain 4: Iteration: 17000 / 20000 [ 85%]  (Sampling)
-Chain 1: Iteration: 11500 / 20000 [ 57%]  (Sampling)
-Chain 2: Iteration: 11000 / 20000 [ 55%]  (Sampling)
-Chain 4: Iteration: 17500 / 20000 [ 87%]  (Sampling)
-Chain 1: Iteration: 12000 / 20000 [ 60%]  (Sampling)
-Chain 3: Iteration:  3500 / 20000 [ 17%]  (Warmup)
-Chain 2: Iteration: 11500 / 20000 [ 57%]  (Sampling)
-Chain 4: Iteration: 18000 / 20000 [ 90%]  (Sampling)
-Chain 1: Iteration: 12500 / 20000 [ 62%]  (Sampling)
-Chain 2: Iteration: 12000 / 20000 [ 60%]  (Sampling)
-Chain 3: Iteration:  4000 / 20000 [ 20%]  (Warmup)
-Chain 4: Iteration: 18500 / 20000 [ 92%]  (Sampling)
-Chain 1: Iteration: 13000 / 20000 [ 65%]  (Sampling)
-Chain 2: Iteration: 12500 / 20000 [ 62%]  (Sampling)
-Chain 4: Iteration: 19000 / 20000 [ 95%]  (Sampling)
-Chain 1: Iteration: 13500 / 20000 [ 67%]  (Sampling)
-Chain 3: Iteration:  4500 / 20000 [ 22%]  (Warmup)
-Chain 2: Iteration: 13000 / 20000 [ 65%]  (Sampling)
-Chain 4: Iteration: 19500 / 20000 [ 97%]  (Sampling)
-Chain 1: Iteration: 14000 / 20000 [ 70%]  (Sampling)
-Chain 2: Iteration: 13500 / 20000 [ 67%]  (Sampling)
-Chain 4: Iteration: 20000 / 20000 [100%]  (Sampling)
+Chain 4: Iteration:     1 / 30000 [  0%]  (Warmup)
+Chain 4: Iteration:   500 / 30000 [  1%]  (Warmup)
+Chain 2: Iteration:   500 / 30000 [  1%]  (Warmup)
+Chain 1: Iteration:   500 / 30000 [  1%]  (Warmup)
+Chain 3: Iteration:   500 / 30000 [  1%]  (Warmup)
+Chain 4: Iteration:  1000 / 30000 [  3%]  (Warmup)
+Chain 4: Iteration:  1500 / 30000 [  5%]  (Warmup)
+Chain 2: Iteration:  1000 / 30000 [  3%]  (Warmup)
+Chain 4: Iteration:  2000 / 30000 [  6%]  (Warmup)
+Chain 1: Iteration:  1000 / 30000 [  3%]  (Warmup)
+Chain 4: Iteration:  2500 / 30000 [  8%]  (Warmup)
+Chain 2: Iteration:  1500 / 30000 [  5%]  (Warmup)
+Chain 1: Iteration:  1500 / 30000 [  5%]  (Warmup)
+Chain 4: Iteration:  3000 / 30000 [ 10%]  (Warmup)
+Chain 4: Iteration:  3500 / 30000 [ 11%]  (Warmup)
+Chain 2: Iteration:  2000 / 30000 [  6%]  (Warmup)
+Chain 1: Iteration:  2000 / 30000 [  6%]  (Warmup)
+Chain 4: Iteration:  4000 / 30000 [ 13%]  (Warmup)
+Chain 4: Iteration:  4500 / 30000 [ 15%]  (Warmup)
+Chain 1: Iteration:  2500 / 30000 [  8%]  (Warmup)
+Chain 2: Iteration:  2500 / 30000 [  8%]  (Warmup)
+Chain 4: Iteration:  5000 / 30000 [ 16%]  (Warmup)
+Chain 1: Iteration:  3000 / 30000 [ 10%]  (Warmup)
+Chain 2: Iteration:  3000 / 30000 [ 10%]  (Warmup)
+Chain 1: Iteration:  3500 / 30000 [ 11%]  (Warmup)
+Chain 4: Iteration:  5500 / 30000 [ 18%]  (Warmup)
+Chain 2: Iteration:  3500 / 30000 [ 11%]  (Warmup)
+Chain 1: Iteration:  4000 / 30000 [ 13%]  (Warmup)
+Chain 2: Iteration:  4000 / 30000 [ 13%]  (Warmup)
+Chain 1: Iteration:  4500 / 30000 [ 15%]  (Warmup)
+Chain 2: Iteration:  4500 / 30000 [ 15%]  (Warmup)
+Chain 4: Iteration:  6000 / 30000 [ 20%]  (Warmup)
+Chain 2: Iteration:  5000 / 30000 [ 16%]  (Warmup)
+Chain 1: Iteration:  5000 / 30000 [ 16%]  (Warmup)
+Chain 2: Iteration:  5500 / 30000 [ 18%]  (Warmup)
+Chain 4: Iteration:  6500 / 30000 [ 21%]  (Warmup)
+Chain 3: Iteration:  1000 / 30000 [  3%]  (Warmup)
+Chain 4: Iteration:  7000 / 30000 [ 23%]  (Warmup)
+Chain 2: Iteration:  6000 / 30000 [ 20%]  (Warmup)
+Chain 1: Iteration:  5500 / 30000 [ 18%]  (Warmup)
+Chain 4: Iteration:  7500 / 30000 [ 25%]  (Warmup)
+Chain 4: Iteration:  8000 / 30000 [ 26%]  (Warmup)
+Chain 1: Iteration:  6000 / 30000 [ 20%]  (Warmup)
+Chain 2: Iteration:  6500 / 30000 [ 21%]  (Warmup)
+Chain 4: Iteration:  8500 / 30000 [ 28%]  (Warmup)
+Chain 1: Iteration:  6500 / 30000 [ 21%]  (Warmup)
+Chain 4: Iteration:  9000 / 30000 [ 30%]  (Warmup)
+Chain 1: Iteration:  7000 / 30000 [ 23%]  (Warmup)
+Chain 3: Iteration:  1500 / 30000 [  5%]  (Warmup)
+Chain 2: Iteration:  7000 / 30000 [ 23%]  (Warmup)
+Chain 1: Iteration:  7500 / 30000 [ 25%]  (Warmup)
+Chain 4: Iteration:  9500 / 30000 [ 31%]  (Warmup)
+Chain 3: Iteration:  2000 / 30000 [  6%]  (Warmup)
+Chain 2: Iteration:  7500 / 30000 [ 25%]  (Warmup)
+Chain 4: Iteration: 10000 / 30000 [ 33%]  (Warmup)
+Chain 4: Iteration: 10001 / 30000 [ 33%]  (Sampling)
+Chain 1: Iteration:  8000 / 30000 [ 26%]  (Warmup)
+Chain 4: Iteration: 10500 / 30000 [ 35%]  (Sampling)
+Chain 4: Iteration: 11000 / 30000 [ 36%]  (Sampling)
+Chain 4: Iteration: 11500 / 30000 [ 38%]  (Sampling)
+Chain 2: Iteration:  8000 / 30000 [ 26%]  (Warmup)
+Chain 1: Iteration:  8500 / 30000 [ 28%]  (Warmup)
+Chain 4: Iteration: 12000 / 30000 [ 40%]  (Sampling)
+Chain 4: Iteration: 12500 / 30000 [ 41%]  (Sampling)
+Chain 4: Iteration: 13000 / 30000 [ 43%]  (Sampling)
+Chain 1: Iteration:  9000 / 30000 [ 30%]  (Warmup)
+Chain 2: Iteration:  8500 / 30000 [ 28%]  (Warmup)
+Chain 4: Iteration: 13500 / 30000 [ 45%]  (Sampling)
+Chain 4: Iteration: 14000 / 30000 [ 46%]  (Sampling)
+Chain 2: Iteration:  9000 / 30000 [ 30%]  (Warmup)
+Chain 3: Iteration:  2500 / 30000 [  8%]  (Warmup)
+Chain 1: Iteration:  9500 / 30000 [ 31%]  (Warmup)
+Chain 4: Iteration: 14500 / 30000 [ 48%]  (Sampling)
+Chain 4: Iteration: 15000 / 30000 [ 50%]  (Sampling)
+Chain 2: Iteration:  9500 / 30000 [ 31%]  (Warmup)
+Chain 4: Iteration: 15500 / 30000 [ 51%]  (Sampling)
+Chain 1: Iteration: 10000 / 30000 [ 33%]  (Warmup)
+Chain 1: Iteration: 10001 / 30000 [ 33%]  (Sampling)
+Chain 4: Iteration: 16000 / 30000 [ 53%]  (Sampling)
+Chain 2: Iteration: 10000 / 30000 [ 33%]  (Warmup)
+Chain 2: Iteration: 10001 / 30000 [ 33%]  (Sampling)
+Chain 1: Iteration: 10500 / 30000 [ 35%]  (Sampling)
+Chain 4: Iteration: 16500 / 30000 [ 55%]  (Sampling)
+Chain 2: Iteration: 10500 / 30000 [ 35%]  (Sampling)
+Chain 1: Iteration: 11000 / 30000 [ 36%]  (Sampling)
+Chain 3: Iteration:  3000 / 30000 [ 10%]  (Warmup)
+Chain 4: Iteration: 17000 / 30000 [ 56%]  (Sampling)
+Chain 2: Iteration: 11000 / 30000 [ 36%]  (Sampling)
+Chain 1: Iteration: 11500 / 30000 [ 38%]  (Sampling)
+Chain 4: Iteration: 17500 / 30000 [ 58%]  (Sampling)
+Chain 2: Iteration: 11500 / 30000 [ 38%]  (Sampling)
+Chain 1: Iteration: 12000 / 30000 [ 40%]  (Sampling)
+Chain 4: Iteration: 18000 / 30000 [ 60%]  (Sampling)
+Chain 2: Iteration: 12000 / 30000 [ 40%]  (Sampling)
+Chain 1: Iteration: 12500 / 30000 [ 41%]  (Sampling)
+Chain 3: Iteration:  3500 / 30000 [ 11%]  (Warmup)
+Chain 4: Iteration: 18500 / 30000 [ 61%]  (Sampling)
+Chain 2: Iteration: 12500 / 30000 [ 41%]  (Sampling)
+Chain 1: Iteration: 13000 / 30000 [ 43%]  (Sampling)
+Chain 4: Iteration: 19000 / 30000 [ 63%]  (Sampling)
+Chain 2: Iteration: 13000 / 30000 [ 43%]  (Sampling)
+Chain 3: Iteration:  4000 / 30000 [ 13%]  (Warmup)
+Chain 1: Iteration: 13500 / 30000 [ 45%]  (Sampling)
+Chain 4: Iteration: 19500 / 30000 [ 65%]  (Sampling)
+Chain 2: Iteration: 13500 / 30000 [ 45%]  (Sampling)
+Chain 1: Iteration: 14000 / 30000 [ 46%]  (Sampling)
+Chain 3: Iteration:  4500 / 30000 [ 15%]  (Warmup)
+Chain 4: Iteration: 20000 / 30000 [ 66%]  (Sampling)
+Chain 2: Iteration: 14000 / 30000 [ 46%]  (Sampling)
+Chain 1: Iteration: 14500 / 30000 [ 48%]  (Sampling)
+Chain 2: Iteration: 14500 / 30000 [ 48%]  (Sampling)
+Chain 4: Iteration: 20500 / 30000 [ 68%]  (Sampling)
+Chain 1: Iteration: 15000 / 30000 [ 50%]  (Sampling)
+Chain 3: Iteration:  5000 / 30000 [ 16%]  (Warmup)
+Chain 2: Iteration: 15000 / 30000 [ 50%]  (Sampling)
+Chain 4: Iteration: 21000 / 30000 [ 70%]  (Sampling)
+Chain 1: Iteration: 15500 / 30000 [ 51%]  (Sampling)
+Chain 4: Iteration: 21500 / 30000 [ 71%]  (Sampling)
+Chain 2: Iteration: 15500 / 30000 [ 51%]  (Sampling)
+Chain 1: Iteration: 16000 / 30000 [ 53%]  (Sampling)
+Chain 3: Iteration:  5500 / 30000 [ 18%]  (Warmup)
+Chain 2: Iteration: 16000 / 30000 [ 53%]  (Sampling)
+Chain 4: Iteration: 22000 / 30000 [ 73%]  (Sampling)
+Chain 1: Iteration: 16500 / 30000 [ 55%]  (Sampling)
+Chain 2: Iteration: 16500 / 30000 [ 55%]  (Sampling)
+Chain 4: Iteration: 22500 / 30000 [ 75%]  (Sampling)
+Chain 1: Iteration: 17000 / 30000 [ 56%]  (Sampling)
+Chain 2: Iteration: 17000 / 30000 [ 56%]  (Sampling)
+Chain 4: Iteration: 23000 / 30000 [ 76%]  (Sampling)
+Chain 3: Iteration:  6000 / 30000 [ 20%]  (Warmup)
+Chain 1: Iteration: 17500 / 30000 [ 58%]  (Sampling)
+Chain 2: Iteration: 17500 / 30000 [ 58%]  (Sampling)
+Chain 4: Iteration: 23500 / 30000 [ 78%]  (Sampling)
+Chain 1: Iteration: 18000 / 30000 [ 60%]  (Sampling)
+Chain 2: Iteration: 18000 / 30000 [ 60%]  (Sampling)
+Chain 4: Iteration: 24000 / 30000 [ 80%]  (Sampling)
+Chain 3: Iteration:  6500 / 30000 [ 21%]  (Warmup)
+Chain 1: Iteration: 18500 / 30000 [ 61%]  (Sampling)
+Chain 2: Iteration: 18500 / 30000 [ 61%]  (Sampling)
+Chain 4: Iteration: 24500 / 30000 [ 81%]  (Sampling)
+Chain 1: Iteration: 19000 / 30000 [ 63%]  (Sampling)
+Chain 2: Iteration: 19000 / 30000 [ 63%]  (Sampling)
+Chain 4: Iteration: 25000 / 30000 [ 83%]  (Sampling)
+Chain 4: Iteration: 25500 / 30000 [ 85%]  (Sampling)
+Chain 4: Iteration: 26000 / 30000 [ 86%]  (Sampling)
+Chain 1: Iteration: 19500 / 30000 [ 65%]  (Sampling)
+Chain 4: Iteration: 26500 / 30000 [ 88%]  (Sampling)
+Chain 2: Iteration: 19500 / 30000 [ 65%]  (Sampling)
+Chain 1: Iteration: 20000 / 30000 [ 66%]  (Sampling)
+Chain 4: Iteration: 27000 / 30000 [ 90%]  (Sampling)
+Chain 2: Iteration: 20000 / 30000 [ 66%]  (Sampling)
+Chain 1: Iteration: 20500 / 30000 [ 68%]  (Sampling)
+Chain 4: Iteration: 27500 / 30000 [ 91%]  (Sampling)
+Chain 2: Iteration: 20500 / 30000 [ 68%]  (Sampling)
+Chain 1: Iteration: 21000 / 30000 [ 70%]  (Sampling)
+Chain 3: Iteration:  7000 / 30000 [ 23%]  (Warmup)
+Chain 4: Iteration: 28000 / 30000 [ 93%]  (Sampling)
+Chain 2: Iteration: 21000 / 30000 [ 70%]  (Sampling)
+Chain 1: Iteration: 21500 / 30000 [ 71%]  (Sampling)
+Chain 4: Iteration: 28500 / 30000 [ 95%]  (Sampling)
+Chain 2: Iteration: 21500 / 30000 [ 71%]  (Sampling)
+Chain 1: Iteration: 22000 / 30000 [ 73%]  (Sampling)
+Chain 4: Iteration: 29000 / 30000 [ 96%]  (Sampling)
+Chain 2: Iteration: 22000 / 30000 [ 73%]  (Sampling)
+Chain 1: Iteration: 22500 / 30000 [ 75%]  (Sampling)
+Chain 4: Iteration: 29500 / 30000 [ 98%]  (Sampling)
+Chain 2: Iteration: 22500 / 30000 [ 75%]  (Sampling)
+Chain 1: Iteration: 23000 / 30000 [ 76%]  (Sampling)
+Chain 4: Iteration: 30000 / 30000 [100%]  (Sampling)
 Chain 4: 
-Chain 4:  Elapsed Time: 12.915 seconds (Warm-up)
-Chain 4:                7.454 seconds (Sampling)
-Chain 4:                20.369 seconds (Total)
+Chain 4:  Elapsed Time: 12.657 seconds (Warm-up)
+Chain 4:                13.464 seconds (Sampling)
+Chain 4:                26.121 seconds (Total)
 Chain 4: 
-Chain 1: Iteration: 14500 / 20000 [ 72%]  (Sampling)
-Chain 3: Iteration:  5000 / 20000 [ 25%]  (Warmup)
-Chain 2: Iteration: 14000 / 20000 [ 70%]  (Sampling)
-Chain 1: Iteration: 15000 / 20000 [ 75%]  (Sampling)
-Chain 2: Iteration: 14500 / 20000 [ 72%]  (Sampling)
-Chain 1: Iteration: 15500 / 20000 [ 77%]  (Sampling)
-Chain 3: Iteration:  5500 / 20000 [ 27%]  (Warmup)
-Chain 2: Iteration: 15000 / 20000 [ 75%]  (Sampling)
-Chain 1: Iteration: 16000 / 20000 [ 80%]  (Sampling)
-Chain 2: Iteration: 15500 / 20000 [ 77%]  (Sampling)
-Chain 1: Iteration: 16500 / 20000 [ 82%]  (Sampling)
-Chain 2: Iteration: 16000 / 20000 [ 80%]  (Sampling)
-Chain 3: Iteration:  6000 / 20000 [ 30%]  (Warmup)
-Chain 1: Iteration: 17000 / 20000 [ 85%]  (Sampling)
-Chain 2: Iteration: 16500 / 20000 [ 82%]  (Sampling)
-Chain 1: Iteration: 17500 / 20000 [ 87%]  (Sampling)
-Chain 2: Iteration: 17000 / 20000 [ 85%]  (Sampling)
-Chain 3: Iteration:  6500 / 20000 [ 32%]  (Warmup)
-Chain 1: Iteration: 18000 / 20000 [ 90%]  (Sampling)
-Chain 2: Iteration: 17500 / 20000 [ 87%]  (Sampling)
-Chain 1: Iteration: 18500 / 20000 [ 92%]  (Sampling)
-Chain 2: Iteration: 18000 / 20000 [ 90%]  (Sampling)
-Chain 1: Iteration: 19000 / 20000 [ 95%]  (Sampling)
-Chain 2: Iteration: 18500 / 20000 [ 92%]  (Sampling)
-Chain 1: Iteration: 19500 / 20000 [ 97%]  (Sampling)
-Chain 2: Iteration: 19000 / 20000 [ 95%]  (Sampling)
-Chain 1: Iteration: 20000 / 20000 [100%]  (Sampling)
+Chain 2: Iteration: 23000 / 30000 [ 76%]  (Sampling)
+Chain 1: Iteration: 23500 / 30000 [ 78%]  (Sampling)
+Chain 2: Iteration: 23500 / 30000 [ 78%]  (Sampling)
+Chain 3: Iteration:  7500 / 30000 [ 25%]  (Warmup)
+Chain 1: Iteration: 24000 / 30000 [ 80%]  (Sampling)
+Chain 2: Iteration: 24000 / 30000 [ 80%]  (Sampling)
+Chain 1: Iteration: 24500 / 30000 [ 81%]  (Sampling)
+Chain 2: Iteration: 24500 / 30000 [ 81%]  (Sampling)
+Chain 1: Iteration: 25000 / 30000 [ 83%]  (Sampling)
+Chain 2: Iteration: 25000 / 30000 [ 83%]  (Sampling)
+Chain 1: Iteration: 25500 / 30000 [ 85%]  (Sampling)
+Chain 3: Iteration:  8000 / 30000 [ 26%]  (Warmup)
+Chain 2: Iteration: 25500 / 30000 [ 85%]  (Sampling)
+Chain 1: Iteration: 26000 / 30000 [ 86%]  (Sampling)
+Chain 2: Iteration: 26000 / 30000 [ 86%]  (Sampling)
+Chain 1: Iteration: 26500 / 30000 [ 88%]  (Sampling)
+Chain 2: Iteration: 26500 / 30000 [ 88%]  (Sampling)
+Chain 1: Iteration: 27000 / 30000 [ 90%]  (Sampling)
+Chain 2: Iteration: 27000 / 30000 [ 90%]  (Sampling)
+Chain 3: Iteration:  8500 / 30000 [ 28%]  (Warmup)
+Chain 1: Iteration: 27500 / 30000 [ 91%]  (Sampling)
+Chain 2: Iteration: 27500 / 30000 [ 91%]  (Sampling)
+Chain 1: Iteration: 28000 / 30000 [ 93%]  (Sampling)
+Chain 2: Iteration: 28000 / 30000 [ 93%]  (Sampling)
+Chain 1: Iteration: 28500 / 30000 [ 95%]  (Sampling)
+Chain 2: Iteration: 28500 / 30000 [ 95%]  (Sampling)
+Chain 1: Iteration: 29000 / 30000 [ 96%]  (Sampling)
+Chain 3: Iteration:  9000 / 30000 [ 30%]  (Warmup)
+Chain 2: Iteration: 29000 / 30000 [ 96%]  (Sampling)
+Chain 1: Iteration: 29500 / 30000 [ 98%]  (Sampling)
+Chain 2: Iteration: 29500 / 30000 [ 98%]  (Sampling)
+Chain 1: Iteration: 30000 / 30000 [100%]  (Sampling)
 Chain 1: 
-Chain 1:  Elapsed Time: 17.12 seconds (Warm-up)
-Chain 1:                7.397 seconds (Sampling)
-Chain 1:                24.517 seconds (Total)
+Chain 1:  Elapsed Time: 16.859 seconds (Warm-up)
+Chain 1:                14.142 seconds (Sampling)
+Chain 1:                31.001 seconds (Total)
 Chain 1: 
-Chain 2: Iteration: 19500 / 20000 [ 97%]  (Sampling)
-Chain 3: Iteration:  7000 / 20000 [ 35%]  (Warmup)
-Chain 2: Iteration: 20000 / 20000 [100%]  (Sampling)
+Chain 2: Iteration: 30000 / 30000 [100%]  (Sampling)
 Chain 2: 
-Chain 2:  Elapsed Time: 17.605 seconds (Warm-up)
-Chain 2:                7.541 seconds (Sampling)
-Chain 2:                25.146 seconds (Total)
+Chain 2:  Elapsed Time: 17.03 seconds (Warm-up)
+Chain 2:                14.084 seconds (Sampling)
+Chain 2:                31.114 seconds (Total)
 Chain 2: 
-Chain 3: Iteration:  7500 / 20000 [ 37%]  (Warmup)
-Chain 3: Iteration:  8000 / 20000 [ 40%]  (Warmup)
-Chain 3: Iteration:  8500 / 20000 [ 42%]  (Warmup)
-Chain 3: Iteration:  9000 / 20000 [ 45%]  (Warmup)
-Chain 3: Iteration:  9500 / 20000 [ 47%]  (Warmup)
-Chain 3: Iteration: 10000 / 20000 [ 50%]  (Warmup)
-Chain 3: Iteration: 10001 / 20000 [ 50%]  (Sampling)
-Chain 3: Iteration: 10500 / 20000 [ 52%]  (Sampling)
-Chain 3: Iteration: 11000 / 20000 [ 55%]  (Sampling)
-Chain 3: Iteration: 11500 / 20000 [ 57%]  (Sampling)
-Chain 3: Iteration: 12000 / 20000 [ 60%]  (Sampling)
-Chain 3: Iteration: 12500 / 20000 [ 62%]  (Sampling)
-Chain 3: Iteration: 13000 / 20000 [ 65%]  (Sampling)
-Chain 3: Iteration: 13500 / 20000 [ 67%]  (Sampling)
-Chain 3: Iteration: 14000 / 20000 [ 70%]  (Sampling)
-Chain 3: Iteration: 14500 / 20000 [ 72%]  (Sampling)
-Chain 3: Iteration: 15000 / 20000 [ 75%]  (Sampling)
-Chain 3: Iteration: 15500 / 20000 [ 77%]  (Sampling)
-Chain 3: Iteration: 16000 / 20000 [ 80%]  (Sampling)
-Chain 3: Iteration: 16500 / 20000 [ 82%]  (Sampling)
-Chain 3: Iteration: 17000 / 20000 [ 85%]  (Sampling)
-Chain 3: Iteration: 17500 / 20000 [ 87%]  (Sampling)
-Chain 3: Iteration: 18000 / 20000 [ 90%]  (Sampling)
-Chain 3: Iteration: 18500 / 20000 [ 92%]  (Sampling)
-Chain 3: Iteration: 19000 / 20000 [ 95%]  (Sampling)
-Chain 3: Iteration: 19500 / 20000 [ 97%]  (Sampling)
-Chain 3: Iteration: 20000 / 20000 [100%]  (Sampling)
+Chain 3: Iteration:  9500 / 30000 [ 31%]  (Warmup)
+Chain 3: Iteration: 10000 / 30000 [ 33%]  (Warmup)
+Chain 3: Iteration: 10001 / 30000 [ 33%]  (Sampling)
+Chain 3: Iteration: 10500 / 30000 [ 35%]  (Sampling)
+Chain 3: Iteration: 11000 / 30000 [ 36%]  (Sampling)
+Chain 3: Iteration: 11500 / 30000 [ 38%]  (Sampling)
+Chain 3: Iteration: 12000 / 30000 [ 40%]  (Sampling)
+Chain 3: Iteration: 12500 / 30000 [ 41%]  (Sampling)
+Chain 3: Iteration: 13000 / 30000 [ 43%]  (Sampling)
+Chain 3: Iteration: 13500 / 30000 [ 45%]  (Sampling)
+Chain 3: Iteration: 14000 / 30000 [ 46%]  (Sampling)
+Chain 3: Iteration: 14500 / 30000 [ 48%]  (Sampling)
+Chain 3: Iteration: 15000 / 30000 [ 50%]  (Sampling)
+Chain 3: Iteration: 15500 / 30000 [ 51%]  (Sampling)
+Chain 3: Iteration: 16000 / 30000 [ 53%]  (Sampling)
+Chain 3: Iteration: 16500 / 30000 [ 55%]  (Sampling)
+Chain 3: Iteration: 17000 / 30000 [ 56%]  (Sampling)
+Chain 3: Iteration: 17500 / 30000 [ 58%]  (Sampling)
+Chain 3: Iteration: 18000 / 30000 [ 60%]  (Sampling)
+Chain 3: Iteration: 18500 / 30000 [ 61%]  (Sampling)
+Chain 3: Iteration: 19000 / 30000 [ 63%]  (Sampling)
+Chain 3: Iteration: 19500 / 30000 [ 65%]  (Sampling)
+Chain 3: Iteration: 20000 / 30000 [ 66%]  (Sampling)
+Chain 3: Iteration: 20500 / 30000 [ 68%]  (Sampling)
+Chain 3: Iteration: 21000 / 30000 [ 70%]  (Sampling)
+Chain 3: Iteration: 21500 / 30000 [ 71%]  (Sampling)
+Chain 3: Iteration: 22000 / 30000 [ 73%]  (Sampling)
+Chain 3: Iteration: 22500 / 30000 [ 75%]  (Sampling)
+Chain 3: Iteration: 23000 / 30000 [ 76%]  (Sampling)
+Chain 3: Iteration: 23500 / 30000 [ 78%]  (Sampling)
+Chain 3: Iteration: 24000 / 30000 [ 80%]  (Sampling)
+Chain 3: Iteration: 24500 / 30000 [ 81%]  (Sampling)
+Chain 3: Iteration: 25000 / 30000 [ 83%]  (Sampling)
+Chain 3: Iteration: 25500 / 30000 [ 85%]  (Sampling)
+Chain 3: Iteration: 26000 / 30000 [ 86%]  (Sampling)
+Chain 3: Iteration: 26500 / 30000 [ 88%]  (Sampling)
+Chain 3: Iteration: 27000 / 30000 [ 90%]  (Sampling)
+Chain 3: Iteration: 27500 / 30000 [ 91%]  (Sampling)
+Chain 3: Iteration: 28000 / 30000 [ 93%]  (Sampling)
+Chain 3: Iteration: 28500 / 30000 [ 95%]  (Sampling)
+Chain 3: Iteration: 29000 / 30000 [ 96%]  (Sampling)
+Chain 3: Iteration: 29500 / 30000 [ 98%]  (Sampling)
+Chain 3: Iteration: 30000 / 30000 [100%]  (Sampling)
 Chain 3: 
-Chain 3:  Elapsed Time: 34.051 seconds (Warm-up)
-Chain 3:                57.05 seconds (Sampling)
-Chain 3:                91.101 seconds (Total)
+Chain 3:  Elapsed Time: 33.855 seconds (Warm-up)
+Chain 3:                113.32 seconds (Sampling)
+Chain 3:                147.175 seconds (Total)
 Chain 3: 
 Warning messages:
-1: There were 6 divergent transitions after warmup. See
+1: There were 142 divergent transitions after warmup. See
 https://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
 to find out why this is a problem and how to eliminate them. 
-2: Examine the pairs() plot to diagnose sampling problems
+2: There were 1 chains where the estimated Bayesian Fraction of Missing Information was low. See
+https://mc-stan.org/misc/warnings.html#bfmi-low 
+3: Examine the pairs() plot to diagnose sampling problems
  
+4: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
+Running the chains for more iterations may help. See
+https://mc-stan.org/misc/warnings.html#tail-ess 
 
 ======================================================================
                     MCMC DIAGNOSTICS
 ======================================================================
-Divergent transitions: 6 / 40000 (0.01%)
+Divergent transitions: 142 / 80000 (0.18%)
   [!] Divergences detected - consider increasing adapt_delta
 Max treedepth reached: 0 times (max=15)
-BFMI per chain: 1.393, 1.536, 1.127, 1.236
+BFMI per chain: 1.195, 1.473, 1.272, 0.561
 Warning message:
-There were 6 divergent transitions after warmup. Increasing adapt_delta above 0.9999 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
+There were 142 divergent transitions after warmup. Increasing adapt_delta above 0.9999 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
 Warning message:
-There were 6 divergent transitions after warmup. Increasing adapt_delta above 0.9999 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
+There were 142 divergent transitions after warmup. Increasing adapt_delta above 0.9999 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
 Warning message:
-There were 6 divergent transitions after warmup. Increasing adapt_delta above 0.9999 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
+There were 142 divergent transitions after warmup. Increasing adapt_delta above 0.9999 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
 
 --- Convergence (all parameters) ---
-  Max Rhat:      1.0010 [OK]
-  Min Bulk ESS:  1935 [OK]
-  Min Tail ESS:  1400 [OK]
+  Max Rhat:      1.0073 [OK]
+  Min Bulk ESS:  648 [OK]
+  Min Tail ESS:  190 [!] < 400
 
 --- Fixed effects summary ---
-  Max Rhat:      1.0010
-  Min Bulk ESS:  3194
-  Min Tail ESS:  3377
+  Max Rhat:      1.0043
+  Min Bulk ESS:  940
+  Min Tail ESS:  212
 ======================================================================
 
 
 Posterior summaries:
-                                        Estimate Est.Error   CI_lower
-Intercept                           -5.927470981 0.2392759 -6.3868514
-longitude_norm                      -0.157314846 0.1963191 -0.5566919
-latitude_norm                        0.001441876 0.2304344 -0.4118711
-log_n_speakers_norm                  0.078695198 0.1322473 -0.1801378
-n_segments_norm                      0.123444988 0.1413354 -0.1614810
-delta_norm                           0.136144298 0.2706872 -0.3987953
-longitude_norm:latitude_norm        -0.259874898 0.1766472 -0.6240949
-longitude_norm:log_n_speakers_norm   0.055284421 0.1874821 -0.3059064
-longitude_norm:n_segments_norm       0.114688622 0.2178787 -0.3084190
-longitude_norm:delta_norm           -0.310288545 0.3212946 -0.9597236
-latitude_norm:log_n_speakers_norm    0.086560642 0.1651582 -0.2342834
-latitude_norm:n_segments_norm        0.334602892 0.2298497 -0.1336580
-latitude_norm:delta_norm            -0.311504507 0.3669509 -1.0079121
-log_n_speakers_norm:n_segments_norm  0.224185213 0.1815609 -0.1456871
-log_n_speakers_norm:delta_norm       0.038000088 0.3157474 -0.5835974
-n_segments_norm:delta_norm           0.360794868 0.2557158 -0.1385102
+                                       Estimate Est.Error   CI_lower
+Intercept                           -5.91600691 0.2536536 -6.3918712
+longitude_norm                      -0.15729665 0.2000296 -0.5598018
+latitude_norm                        0.01391787 0.2322947 -0.4063725
+log_n_speakers_norm                  0.08389693 0.1325846 -0.1716712
+n_segments_norm                      0.12748959 0.1450342 -0.1573290
+delta_norm                           0.14901588 0.2709341 -0.3838404
+longitude_norm:latitude_norm        -0.26559298 0.1778924 -0.6380596
+longitude_norm:log_n_speakers_norm   0.05499462 0.1856855 -0.3108297
+longitude_norm:n_segments_norm       0.11610713 0.2165276 -0.3063702
+longitude_norm:delta_norm           -0.31206627 0.3210780 -0.9516866
+latitude_norm:log_n_speakers_norm    0.08854744 0.1656130 -0.2358063
+latitude_norm:n_segments_norm        0.33545599 0.2291642 -0.1132321
+latitude_norm:delta_norm            -0.30145875 0.3625258 -1.0059797
+log_n_speakers_norm:n_segments_norm  0.23028994 0.1802877 -0.1324535
+log_n_speakers_norm:delta_norm       0.04571480 0.3130127 -0.5704662
+n_segments_norm:delta_norm           0.36245148 0.2562441 -0.1364302
                                        CI_upper
-Intercept                           -5.41193800
-longitude_norm                       0.21575105
-latitude_norm                        0.52060130
-log_n_speakers_norm                  0.33873977
-n_segments_norm                      0.40540148
-delta_norm                           0.66046369
-longitude_norm:latitude_norm         0.07934487
-longitude_norm:log_n_speakers_norm   0.43054942
-longitude_norm:n_segments_norm       0.55163314
-longitude_norm:delta_norm            0.30291629
-latitude_norm:log_n_speakers_norm    0.42190026
-latitude_norm:n_segments_norm        0.77683540
-latitude_norm:delta_norm             0.45929230
-log_n_speakers_norm:n_segments_norm  0.57613200
-log_n_speakers_norm:delta_norm       0.68953255
-n_segments_norm:delta_norm           0.86842251
+Intercept                           -5.28858986
+longitude_norm                       0.22362887
+latitude_norm                        0.51460445
+log_n_speakers_norm                  0.34472361
+n_segments_norm                      0.41724545
+delta_norm                           0.67297824
+longitude_norm:latitude_norm         0.07384896
+longitude_norm:log_n_speakers_norm   0.42538297
+longitude_norm:n_segments_norm       0.55283287
+longitude_norm:delta_norm            0.30417560
+latitude_norm:log_n_speakers_norm    0.42192694
+latitude_norm:n_segments_norm        0.78549602
+latitude_norm:delta_norm             0.44014267
+log_n_speakers_norm:n_segments_norm  0.58462440
+log_n_speakers_norm:delta_norm       0.68312045
+n_segments_norm:delta_norm           0.86794177
 
-Bayes R²: 0.481 (95% CI: 0.130 - 0.832)
+Bayes R²: 0.503 (95% CI: 0.141 - 0.894)
 ✔️ Posterior samples written to speech_phylo/final_phyloregression_results/variance_samples_linear_secondorder_heggarty2024_standard.csv 
 ✔️ Coefficient samples written to speech_phylo/final_phyloregression_results/coef_samples_linear_secondorder_heggarty2024_standard.csv 
 ✔️ CSV results written to speech_phylo/final_phyloregression_results/phylolm_linear_secondorder_heggarty2024_standard.csv 
@@ -308,7 +393,7 @@ Bayes R²: 0.481 (95% CI: 0.130 - 0.832)
 ══════════════════════════════════════════════════════════════════
 COMPLETED: heggarty2024 × secondorder
 ══════════════════════════════════════════════════════════════════
-  R²: 0.222 (95% CI: -0.481 – 0.824)
-  Phylogenetic: 73.1%
-  Residual: 77.8%
+  R²: 0.240 (95% CI: -0.466 – 0.911)
+  Phylogenetic: 81.0%
+  Residual: 76.0%
 ══════════════════════════════════════════════════════════════════

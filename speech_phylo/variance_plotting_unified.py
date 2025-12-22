@@ -447,8 +447,9 @@ def plot_variance_violin(
                 tree_disp = tree_labels.get(tree_name, tree_name)
                 n_div = int(tree_reg["n_divergent"].iloc[0]) if "n_divergent" in tree_reg.columns else 0
                 rhat = tree_reg["max_rhat"].iloc[0] if "max_rhat" in tree_reg.columns else 1.0
-                ess = int(tree_reg["min_bulk_ess"].iloc[0])
-                diag_parts.append(f"{tree_disp}: ESS={ess}, R̂={rhat:.2f}, div={n_div}")
+                ess_all = int(tree_reg["min_bulk_ess"].iloc[0])
+                ess_fix = int(tree_reg["min_bulk_ess_fixed"].iloc[0]) if "min_bulk_ess_fixed" in tree_reg.columns else ess_all
+                diag_parts.append(f"{tree_disp}: ESS_fix={ess_fix}/all={ess_all}, R̂={rhat:.2f}, div={n_div}")
         if diag_parts:
             fig.suptitle(" | ".join(diag_parts), fontsize=8, color="#666666", y=0.02)
     
@@ -681,10 +682,13 @@ def plot_spline_surface(
     
     # Define ROI bounds from data with padding (Europe + India region)
     PAD_DEG = 15
-    ROI_MINX = lon.min() - PAD_DEG
-    ROI_MAXX = lon.max() + PAD_DEG
-    ROI_MINY = lat.min() - PAD_DEG
-    ROI_MAXY = lat.max() + PAD_DEG
+    world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+    ire = world.loc[world['name'] == 'Ireland'].total_bounds
+    bgd = world.loc[world['name'] == 'Bangladesh'].total_bounds
+    ROI_MINX = min(ire[0], bgd[0]) - PAD_DEG
+    ROI_MAXX = max(ire[2], bgd[2]) + PAD_DEG
+    ROI_MINY = min(ire[1], bgd[1]) - PAD_DEG
+    ROI_MAXY = max(ire[3], bgd[3]) + PAD_DEG
     ROI_BOX = box(ROI_MINX, ROI_MINY, ROI_MAXX, ROI_MAXY)
     
     # Load language GeoJSON for masking
@@ -794,8 +798,9 @@ def plot_spline_surface(
         if not tree_reg.empty:
             n_div = int(tree_reg["n_divergent"].iloc[0]) if "n_divergent" in tree_reg.columns else 0
             rhat = tree_reg["max_rhat"].iloc[0] if "max_rhat" in tree_reg.columns else 1.0
-            ess = int(tree_reg["min_bulk_ess"].iloc[0])
-            diag_subtitle = f"ESS={ess}, R̂={rhat:.2f}, divergences={n_div}"
+            ess_all = int(tree_reg["min_bulk_ess"].iloc[0])
+            ess_fix = int(tree_reg["min_bulk_ess_fixed"].iloc[0]) if "min_bulk_ess_fixed" in tree_reg.columns else ess_all
+            diag_subtitle = f"ESS_fix={ess_fix}/all={ess_all}, R̂={rhat:.2f}, divergences={n_div}"
     
     # Professional styling
     ax.set_xlabel("Longitude", fontsize=18)
@@ -816,6 +821,261 @@ def plot_spline_surface(
         print(f"Saved: {path}")
     
     plt.show()
+
+
+# ============================================================================
+# SPLINE SURFACE WITH COEFFICIENT SIGNIFICANCE OVERLAY
+# ============================================================================
+
+def plot_spline_with_significance(
+    model_type: str = "main_only",
+    csv_dir: str = "speech_phylo/final_phyloregression_results",
+    tree_name: str = "heggarty2024",
+    coord_method: str = "standard",
+    tree_labels: dict = None,
+    output_dir: str = "speech_phylo/final_spline_figuresv2",
+    show_observations: bool = True,
+    show_basemap: bool = True,
+    prob_threshold: float = 0.9,
+    save: bool = False,
+) -> None:
+    """
+    Plot per-location spline significance using same style as spline surface plot.
+    
+    prob_threshold: Proportion of posterior samples that must be on one side of 0.
+                   (0.9 = 90% of samples must be positive or 90% negative)
+    
+    At each grid point, shows binary significance:
+    - Blue (0): Less than prob_threshold of samples on one side
+    - Red (1): At least prob_threshold of samples on one side (positive or negative)
+    
+    Uses same language polygon masking and styling as plot_spline_surface.
+    """
+    import geopandas as gpd
+    from shapely.geometry import box, Point
+    from shapely.prepared import prep
+    
+    if tree_labels is None:
+        tree_labels = TREE_LABELS
+    
+    config = MODEL_CONFIGS[model_type]
+    
+    # Load spline surface
+    df = load_spline_surface(csv_dir, model_type, tree_name, coord_method)
+    if df.empty:
+        print(f"No spline surface data for {tree_name}")
+        return
+    
+    tree_display = tree_labels.get(tree_name, tree_name)
+    
+    # Get grid data
+    lon = df["longitude"].values
+    lat = df["latitude"].values
+    
+    # Use probability column if available, otherwise fall back to CI-based
+    if "spline_prob_positive" in df.columns:
+        prob_positive = df["spline_prob_positive"].values
+        # Convert to percentage (0-100%)
+        prob_pct = prob_positive * 100
+        method_label = "% posterior samples > 0"
+    else:
+        # Fall back to mean-based estimate if prob column not available
+        print(f"Warning: spline_prob_positive column not found")
+        prob_pct = np.full_like(lon, 50.0)  # Default to 50%
+        method_label = "probability unavailable"
+    
+    n_grid = int(np.sqrt(len(lon)))
+    
+    try:
+        lon_grid = lon.reshape(n_grid, n_grid)
+        lat_grid = lat.reshape(n_grid, n_grid)
+        z_grid = prob_pct.reshape(n_grid, n_grid)
+    except ValueError:
+        print(f"Cannot reshape data for {tree_name}")
+        return
+    
+    fig, ax = plt.subplots(figsize=(16, 10))
+    
+    # ROI bounds using Ireland to Bangladesh extent
+    PAD_DEG = 15
+    world = gpd.read_file(gpd.datasets.get_path('naturalearth_lowres'))
+    ire = world.loc[world['name'] == 'Ireland'].total_bounds
+    bgd = world.loc[world['name'] == 'Bangladesh'].total_bounds
+    ROI_MINX = min(ire[0], bgd[0]) - PAD_DEG
+    ROI_MAXX = max(ire[2], bgd[2]) + PAD_DEG
+    ROI_MINY = min(ire[1], bgd[1]) - PAD_DEG
+    ROI_MAXY = max(ire[3], bgd[3]) + PAD_DEG
+    ROI_BOX = box(ROI_MINX, ROI_MINY, ROI_MAXX, ROI_MAXY)
+    
+    # Load language polygons from geojson (same as spline plot)
+    gdf_language = None
+    language_union = None
+    # GeoJSON is in parent directory of csv_dir
+    geojson_path = os.path.join(os.path.dirname(csv_dir), "dataset.geojson")
+    if not os.path.exists(geojson_path):
+        geojson_path = os.path.join(csv_dir, "dataset.geojson")  # fallback
+    
+    if os.path.exists(geojson_path):
+        try:
+            gdf_language = gpd.read_file(geojson_path)
+            
+            renaming = {
+                "Punjabi (Panjabi)": "Punjabi",
+                "Norwegian": "NorwegianBokmal",
+                "Persian (Farsi)": "PersianTehran",
+                "Belarusian (Belorussian)": "Belarusian",
+                "Kurdish": "KurdishCJafiri",
+                "Netherlandic": "Dutch",
+                "Serbian / Croatian / Bosnian": "SerboCroatian",
+            }
+            gdf_language["name"] = gdf_language["name"].replace(renaming)
+            
+            metadata_path = os.path.join(csv_dir, f"metadata_{tree_name}_with_inventory_delta.csv")
+            if os.path.exists(metadata_path):
+                obs_df = pd.read_csv(metadata_path)
+                valid_langs = set(obs_df.get("language", []))
+                gdf_language = gdf_language[gdf_language["name"].isin(valid_langs)].copy()
+            
+            gdf_language = gpd.clip(gdf_language, ROI_BOX)
+            
+            if not gdf_language.empty:
+                language_union = gdf_language.unary_union
+        except Exception as e:
+            print(f"Warning: Could not load language GeoJSON: {e}")
+    
+    # Load basemap (same as spline plot)
+    if show_basemap:
+        try:
+            land_union = world.unary_union
+            land_gdf = gpd.GeoDataFrame(geometry=[land_union], crs=world.crs)
+            land_roi = gpd.clip(land_gdf, ROI_BOX)
+            
+            ax.set_facecolor("#d5e9ff")  # Ocean
+            land_roi.plot(ax=ax, color='white', edgecolor='none', zorder=0)
+            land_roi.boundary.plot(ax=ax, color='lightgray', linewidth=0.6, zorder=0.5)
+        except Exception:
+            pass
+    
+    # Mask probability grid to language regions
+    z_masked = z_grid.copy()
+    if language_union is not None:
+        language_prep = prep(language_union)
+        grid_points = np.column_stack([lon_grid.ravel(), lat_grid.ravel()])
+        
+        in_language_mask = np.array([
+            language_prep.contains(Point(p[0], p[1])) for p in grid_points
+        ]).reshape(lon_grid.shape)
+        
+        z_masked = np.where(in_language_mask, z_grid, np.nan)
+    
+    # Bin the probability into discrete categories
+    from matplotlib.colors import BoundaryNorm, ListedColormap
+    
+    # Define 8 bins: 12.5% intervals
+    bounds = [0, 12.5, 25, 37.5, 50, 62.5, 75, 87.5, 100]
+    # Colors: dark blue → light blue → white area → light red → dark red
+    colors = ["#08306b", "#2171b5", "#6baed6", "#c6dbef", 
+              "#fcbba1", "#fc9272", "#cb181d", "#67000d"]
+    cmap_binned = ListedColormap(colors)
+    norm = BoundaryNorm(bounds, cmap_binned.N)
+    
+    mesh = ax.pcolormesh(lon_grid, lat_grid, z_masked, shading="auto",
+                         cmap=cmap_binned, norm=norm, zorder=1)
+    
+    # Language polygon boundaries (white outlines)
+    if gdf_language is not None and not gdf_language.empty:
+        gdf_language.boundary.plot(ax=ax, color='white', linewidth=0.8, zorder=2)
+    
+    # Add observation points (same as spline plot)
+    if show_observations:
+        metadata_path = os.path.join(csv_dir, f"metadata_{tree_name}_with_inventory_delta.csv")
+        if os.path.exists(metadata_path):
+            obs_df = pd.read_csv(metadata_path)
+            if "longitude" in obs_df.columns and "latitude" in obs_df.columns:
+                ax.scatter(obs_df["longitude"], obs_df["latitude"], 
+                          c="white", s=60, edgecolor="black", linewidth=0.7,
+                          alpha=1.0, zorder=10, label="Language locations")
+    
+    ax.set_xlim(ROI_MINX, ROI_MAXX)
+    ax.set_ylim(ROI_MINY, ROI_MAXY)
+    
+    # Colorbar with bin labels
+    tick_positions = [6.25, 18.75, 31.25, 43.75, 56.25, 68.75, 81.25, 93.75]
+    cbar = plt.colorbar(mesh, ax=ax, pad=0.02, shrink=0.9, ticks=tick_positions)
+    cbar.ax.set_yticklabels([
+        "87.5-100% below 0",
+        "75-87.5% below 0",
+        "62.5-75% below 0", 
+        "50-62.5% below 0",
+        "50-62.5% above 0",
+        "62.5-75% above 0",
+        "75-87.5% above 0",
+        "87.5-100% above 0"
+    ])
+    cbar.set_label("Posterior Probability", fontsize=18, fontweight="bold")
+    cbar.ax.tick_params(labelsize=11)
+    
+    # Professional styling (same as spline plot)
+    ax.set_xlabel("Longitude", fontsize=18)
+    ax.set_ylabel("Latitude", fontsize=18)
+    ax.tick_params(axis="both", labelsize=14)
+    ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.6)
+    
+    ax.set_title(f"Posterior Probability of Positive Spline Effect: {tree_display}\n" +
+                 f"({config['display_name']})",
+                 fontsize=16, fontweight="bold")
+    
+    plt.tight_layout()
+    
+    if save:
+        os.makedirs(output_dir, exist_ok=True)
+        suffix = config["file_suffix"] or "_mainonly"
+        path = os.path.join(output_dir, f"spline_significance{suffix}_{tree_name}_{coord_method}.svg")
+        plt.savefig(path, dpi=300, bbox_inches="tight")
+        print(f"Saved: {path}")
+    
+    plt.show()
+
+
+def plot_all_significance_plots(
+    model_types: list = None,
+    csv_dir: str = "speech_phylo/final_phyloregression_results",
+    coord_method: str = "standard",
+    output_dir: str = "speech_phylo/final_spline_figuresv2",
+    save: bool = True,
+) -> list:
+    """
+    Generate per-location spline significance plots for all trees and model types.
+    Returns list of saved file paths.
+    """
+    if model_types is None:
+        model_types = ["main_only", "secondorder", "allinteractions"]
+    
+    trees = ["heggarty2024", "long_v3_CCD0.0.25"]
+    saved_paths = []
+    
+    for model_type in model_types:
+        for tree_name in trees:
+            print(f"Generating: {model_type} × {tree_name}")
+            try:
+                plot_spline_with_significance(
+                    model_type=model_type,
+                    csv_dir=csv_dir,
+                    tree_name=tree_name,
+                    coord_method=coord_method,
+                    output_dir=output_dir,
+                    save=save,
+                    prob_threshold=0.9,
+                )
+                if save:
+                    config = MODEL_CONFIGS[model_type]
+                    suffix = config["file_suffix"] or "_mainonly"
+                    path = os.path.join(output_dir, f"spline_significance{suffix}_{tree_name}_{coord_method}.svg")
+                    saved_paths.append(path)
+            except Exception as e:
+                print(f"  Error: {e}")
+    
+    return saved_paths
 
 
 # ============================================================================
@@ -1101,6 +1361,7 @@ def create_combined_pdf_simple(
         ("variance_stacked", "Variance Stacked Bar Plots"),
         ("effects_comparison", "Effects Comparison Plots"),
         ("spline_surface", "Spline Surface Plots"),
+        ("spline_significance", "Spline + Significance Plots"),
     ]
     
     # Model order
@@ -1144,15 +1405,23 @@ def create_combined_pdf_simple(
         pdf_path = os.path.join(temp_dir, pdf_name)
         
         try:
-            if has_cairosvg:
-                cairosvg.svg2pdf(url=svg_path, write_to=pdf_path)
-            elif has_inkscape:
-                subprocess.run(
+            if has_inkscape:
+                # Prefer inkscape - more robust for complex SVGs
+                result = subprocess.run(
                     ["inkscape", svg_path, "--export-type=pdf", f"--export-filename={pdf_path}"],
-                    capture_output=True, check=True
+                    capture_output=True
                 )
-            temp_pdfs.append(pdf_path)
-            print(f"  ✔ Converted: {os.path.basename(svg_path)}")
+                if result.returncode == 0:
+                    temp_pdfs.append(pdf_path)
+                    print(f"  ✔ Converted: {os.path.basename(svg_path)}")
+                else:
+                    print(f"  ✗ Inkscape error for {os.path.basename(svg_path)}")
+            elif has_cairosvg:
+                cairosvg.svg2pdf(url=svg_path, write_to=pdf_path)
+                temp_pdfs.append(pdf_path)
+                print(f"  ✔ Converted: {os.path.basename(svg_path)}")
+        except subprocess.TimeoutExpired:
+            print(f"  ⏱ Timeout (skipped): {os.path.basename(svg_path)}")
         except Exception as e:
             print(f"  ✗ Error converting {os.path.basename(svg_path)}: {e}")
     
@@ -1204,6 +1473,7 @@ if __name__ == "__main__":
     # Example usage
     plot_all_models(csv_dir="speech_phylo/final_phyloregression_results", save=True)
     plot_all_spline_surfaces(csv_dir="speech_phylo/final_phyloregression_results", save=True)
+    plot_all_significance_plots(csv_dir="speech_phylo/final_phyloregression_results", save=True, output_dir="speech_phylo/final_spline_figuresv2")
     
     # Create combined PDF with all figures
     create_combined_pdf_simple(

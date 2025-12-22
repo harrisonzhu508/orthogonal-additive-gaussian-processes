@@ -150,7 +150,7 @@ for (tree_name in tree_names) {
             family = gaussian(),
             refresh = 0,
             chains = 4,
-            iter = 20000,
+            iter = 30000,
             warmup = 10000,
             seed = 20231103,
             cores = max(1L, min(4L, parallel::detectCores())),
@@ -296,12 +296,11 @@ for (tree_name in tree_names) {
         # Create a grid over the normalized longitude/latitude space
         cat("\nExtracting spline surface for visualization...\n")
         
-        n_grid <- 900  # Grid resolution
-        lon_range <- range(model_df$longitude_norm)
-        lat_range <- range(model_df$latitude_norm)
+        n_grid <- 200  # Grid resolution (reduced from 900 for consistency)
         
-        lon_seq <- seq(lon_range[1], lon_range[2], length.out = n_grid)
-        lat_seq <- seq(lat_range[1], lat_range[2], length.out = n_grid)
+        # Use fixed normalized bounds to cover Ireland-Bangladesh extent
+        lon_seq <- seq(-3, 3, length.out = n_grid)
+        lat_seq <- seq(-3, 3, length.out = n_grid)
         
         grid_df <- expand.grid(
             longitude_norm = lon_seq,
@@ -328,9 +327,23 @@ for (tree_name in tree_names) {
             probs = c(0.025, 0.975)
         )
         
+        # Also get posterior draws for probability calculation
+        spline_draws <- fitted(
+            model, 
+            newdata = grid_df,
+            re_formula = NA,
+            summary = FALSE  # Get all posterior draws
+        )
+        
         # The prediction includes intercept + linear + spline
         # Subtract intercept and linear effects to get spline only
         intercept_mean <- mean(posterior$b_Intercept)
+        intercept_draws <- posterior$b_Intercept  # Vector of intercept draws
+        
+        # Calculate proportion of posterior samples where spline > 0 at each location
+        # spline_draws is n_draws x n_locations matrix
+        spline_draws_centered <- sweep(spline_draws, 1, intercept_draws, "-")
+        spline_prob_positive <- colMeans(spline_draws_centered > 0)
         
         # Spline effect = prediction - intercept (linear covariates are at 0)
         spline_surface <- data.frame(
@@ -338,7 +351,8 @@ for (tree_name in tree_names) {
             latitude_norm = grid_df$latitude_norm,
             spline_mean = spline_pred[, "Estimate"] - intercept_mean,
             spline_lower = spline_pred[, "Q2.5"] - intercept_mean,
-            spline_upper = spline_pred[, "Q97.5"] - intercept_mean
+            spline_upper = spline_pred[, "Q97.5"] - intercept_mean,
+            spline_prob_positive = spline_prob_positive
         )
         
         # Also save original coordinates for plotting
@@ -361,11 +375,14 @@ for (tree_name in tree_names) {
             stringsAsFactors  = FALSE
         )
         
-        # Add MCMC diagnostics to csv_results (ALL parameters, not just fixed)
+        # Add MCMC diagnostics to csv_results (ALL parameters + fixed effects)
         csv_results$n_divergent <- n_div
         csv_results$max_rhat <- max(all_rhat, na.rm = TRUE)
         csv_results$min_bulk_ess <- min(all_bulk_ess, na.rm = TRUE)
         csv_results$min_tail_ess <- min(all_tail_ess, na.rm = TRUE)
+        csv_results$max_rhat_fixed <- max(summ_fixed$Rhat, na.rm = TRUE)
+        csv_results$min_bulk_ess_fixed <- min(summ_fixed$Bulk_ESS, na.rm = TRUE)
+        csv_results$min_tail_ess_fixed <- min(summ_fixed$Tail_ESS, na.rm = TRUE)
 
         # ─── FIXED: Variance Decomposition via posterior_linpred ─────────────
         # 

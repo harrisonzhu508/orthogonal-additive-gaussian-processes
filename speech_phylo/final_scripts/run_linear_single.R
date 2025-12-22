@@ -177,7 +177,7 @@ brm_args <- list(
     # prior = priors,
     refresh = 500,
     chains = 4,
-    iter = 20000,
+    iter = 30000,
     warmup = 10000,
     seed = 20231103,
     cores = 4,
@@ -436,11 +436,14 @@ csv_results <- data.frame(
     stringsAsFactors = FALSE
 )
 
-# Add MCMC diagnostics (ALL parameters, not just fixed)
+# Add MCMC diagnostics (ALL parameters + fixed effects separately)
 csv_results$n_divergent <- n_div
 csv_results$max_rhat <- max(all_rhat, na.rm = TRUE)
 csv_results$min_bulk_ess <- min(all_bulk_ess, na.rm = TRUE)
 csv_results$min_tail_ess <- min(all_tail_ess, na.rm = TRUE)
+csv_results$max_rhat_fixed <- max(summ_fixed$Rhat, na.rm = TRUE)
+csv_results$min_bulk_ess_fixed <- min(summ_fixed$Bulk_ESS, na.rm = TRUE)
+csv_results$min_tail_ess_fixed <- min(summ_fixed$Tail_ESS, na.rm = TRUE)
 
 for (k in seq_len(nrow(coef_df))) {
     term_name <- rownames(coef_df)[k]

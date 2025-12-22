@@ -629,8 +629,9 @@ def plot_variance_violin(
                 tree_disp = tree_labels.get(tree_name, tree_name)
                 n_div = int(tree_reg["n_divergent"].iloc[0]) if "n_divergent" in tree_reg.columns else 0
                 rhat = tree_reg["max_rhat"].iloc[0] if "max_rhat" in tree_reg.columns else 1.0
-                ess = int(tree_reg["min_bulk_ess"].iloc[0])
-                diag_parts.append(f"{tree_disp}: ESS={ess}, R̂={rhat:.2f}, div={n_div}")
+                ess_all = int(tree_reg["min_bulk_ess"].iloc[0])
+                ess_fix = int(tree_reg["min_bulk_ess_fixed"].iloc[0]) if "min_bulk_ess_fixed" in tree_reg.columns else ess_all
+                diag_parts.append(f"{tree_disp}: ESS_fix={ess_fix}/all={ess_all}, R̂={rhat:.2f}, div={n_div}")
         if diag_parts:
             fig.suptitle(" | ".join(diag_parts), fontsize=8, color="#666666", y=0.02)
     
